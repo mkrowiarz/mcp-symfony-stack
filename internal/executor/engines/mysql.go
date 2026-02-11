@@ -65,6 +65,16 @@ func (e *MySQLEngine) BuildDropCommand(dsn *types.DSN, dbName string) []string {
 	}
 }
 
+func (e *MySQLEngine) BuildListCommand(dsn *types.DSN) []string {
+	return []string{
+		"mysql",
+		"-h", dsn.Host,
+		"-u", dsn.User,
+		fmt.Sprintf("-p%s", dsn.Password),
+		"-e", "SHOW DATABASES",
+	}
+}
+
 func (e *MySQLEngine) Name() string {
 	if e.isMariaDB {
 		return "MariaDB"

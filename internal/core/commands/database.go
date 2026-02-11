@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/mkrowiarz/mcp-symfony-stack/internal/core"
@@ -146,6 +148,171 @@ func DropDB(projectRoot, dbName string) (*types.DropResult, error) {
 	dbExecutor := executor.NewDockerDatabaseExecutor(engine, cfg.Docker.ComposeFile)
 
 	return dbExecutor.Drop(cfg.Database.Service, parsedDSN, dbName)
+}
+
+func ListDBs(projectRoot string) (*types.DatabaseListResult, error) {
+	cfg, err := config.Load(projectRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	if cfg.Database == nil {
+		return nil, &types.CommandError{
+			Code:    types.ErrConfigMissing,
+			Message: "database configuration is required for list operations",
+		}
+	}
+
+	parsedDSN, err := dsn.ParseDSN(cfg.Database.DSN)
+	if err != nil {
+		return nil, err
+	}
+
+	engine := getEngine(parsedDSN.Engine)
+
+	dbExecutor := executor.NewDockerDatabaseExecutor(engine, cfg.Docker.ComposeFile)
+
+	return dbExecutor.List(cfg.Database.Service, parsedDSN, parsedDSN.Database)
+}
+
+func CloneDB(projectRoot, sourceDB, targetDB string) (*types.CloneResult, error) {
+	start := time.Now()
+
+	cfg, err := config.Load(projectRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	if cfg.Database == nil {
+		return nil, &types.CommandError{
+			Code:    types.ErrConfigMissing,
+			Message: "database configuration is required for clone operations",
+		}
+	}
+
+	if sourceDB == "" {
+		parsedDSN, _ := dsn.ParseDSN(cfg.Database.DSN)
+		sourceDB = parsedDSN.Database
+	}
+
+	if err := core.IsDatabaseAllowed(sourceDB, cfg.Database.Allowed); err != nil {
+		return nil, err
+	}
+
+	if err := core.IsDatabaseAllowed(targetDB, cfg.Database.Allowed); err != nil {
+		return nil, err
+	}
+
+	parsedDSN, err := dsn.ParseDSN(cfg.Database.DSN)
+	if err != nil {
+		return nil, err
+	}
+
+	engine := getEngine(parsedDSN.Engine)
+
+	dbExecutor := executor.NewDockerDatabaseExecutor(engine, cfg.Docker.ComposeFile)
+
+	_, err = dbExecutor.Create(cfg.Database.Service, parsedDSN, targetDB)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create target database: %w", err)
+	}
+
+	tmpFile := filepath.Join(os.TempDir(), fmt.Sprintf("clone_%s_%d.sql", targetDB, time.Now().UnixNano()))
+
+	dumpResult, err := dbExecutor.Dump(cfg.Database.Service, parsedDSN, tmpFile, nil)
+	if err != nil {
+		os.Remove(tmpFile)
+		return nil, fmt.Errorf("failed to dump source database: %w", err)
+	}
+
+	_, err = dbExecutor.Import(cfg.Database.Service, parsedDSN, tmpFile, targetDB)
+	if err != nil {
+		os.Remove(tmpFile)
+		return nil, fmt.Errorf("failed to import into target database: %w", err)
+	}
+
+	os.Remove(tmpFile)
+
+	return &types.CloneResult{
+		Source:   sourceDB,
+		Target:   targetDB,
+		Size:     dumpResult.Size,
+		Duration: time.Since(start),
+	}, nil
+}
+
+func ListDumps(projectRoot string) (*types.DumpsListResult, error) {
+	cfg, err := config.Load(projectRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	if cfg.Database == nil {
+		return nil, &types.CommandError{
+			Code:    types.ErrConfigMissing,
+			Message: "database configuration is required for dumps list operations",
+		}
+	}
+
+	dumpsPath := cfg.Database.DumpsPath
+	if dumpsPath == "" {
+		dumpsPath = "var/dumps"
+	}
+
+	if _, err := os.Stat(dumpsPath); os.IsNotExist(err) {
+		return &types.DumpsListResult{Dumps: []types.DumpFileInfo{}}, nil
+	}
+
+	files, err := filepath.Glob(filepath.Join(dumpsPath, "*.sql"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read dumps directory: %w", err)
+	}
+
+	var dumps []types.DumpFileInfo
+	for _, file := range files {
+		info, err := os.Stat(file)
+		if err != nil {
+			continue
+		}
+
+		filename := filepath.Base(file)
+		dbName, _ := parseDumpFilename(filename)
+		if dbName == "" {
+			continue
+		}
+
+		dumps = append(dumps, types.DumpFileInfo{
+			Name:     filename,
+			Database: dbName,
+			Size:     info.Size(),
+			Modified: info.ModTime().Format(time.RFC3339),
+		})
+	}
+
+	sort.Slice(dumps, func(i, j int) bool {
+		return dumps[i].Modified > dumps[j].Modified
+	})
+
+	return &types.DumpsListResult{Dumps: dumps}, nil
+}
+
+func parseDumpFilename(filename string) (dbName, timestamp string) {
+	ext := filepath.Ext(filename)
+	if ext != ".sql" {
+		return "", ""
+	}
+
+	name := strings.TrimSuffix(filename, ext)
+
+	idx := strings.LastIndex(name, "_")
+	if idx == -1 {
+		return "", ""
+	}
+
+	dbName = name[:idx]
+	timestamp = name[idx+1:]
+
+	return dbName, timestamp
 }
 
 func getEngine(engineType string) engines.DatabaseEngine {

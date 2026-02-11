@@ -99,6 +99,13 @@ type WorktreeRemoveResult struct {
 type WorkflowCreateResult struct {
 	WorktreePath   string `json:"worktree_path"`
 	WorktreeBranch string `json:"worktree_branch"`
+	DatabaseName   string `json:"database_name,omitempty"`
+	ClonedFrom     string `json:"cloned_from,omitempty"`
+}
+
+type WorkflowRemoveResult struct {
+	WorktreePath string `json:"worktree_path"`
+	DatabaseName string `json:"database_name,omitempty"`
 }
 
 type DumpResult struct {
@@ -130,4 +137,31 @@ type DSN struct {
 	Port          string
 	Database      string
 	ServerVersion string
+}
+
+type DatabaseInfo struct {
+	Name      string `json:"name"`
+	IsDefault bool   `json:"is_default"`
+}
+
+type DatabaseListResult struct {
+	Databases []DatabaseInfo `json:"databases"`
+}
+
+type CloneResult struct {
+	Source   string        `json:"source"`
+	Target   string        `json:"target"`
+	Size     int64         `json:"size"`
+	Duration time.Duration `json:"duration"`
+}
+
+type DumpFileInfo struct {
+	Name     string `json:"name"`
+	Database string `json:"database"`
+	Size     int64  `json:"size"`
+	Modified string `json:"modified"`
+}
+
+type DumpsListResult struct {
+	Dumps []DumpFileInfo `json:"dumps"`
 }

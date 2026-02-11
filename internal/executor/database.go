@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/mkrowiarz/mcp-symfony-stack/internal/core/types"
@@ -16,6 +17,7 @@ type DatabaseExecutor interface {
 	Create(service string, dsn *types.DSN, dbName string) (*types.CreateResult, error)
 	Import(service string, dsn *types.DSN, sourcePath string, dbName string) (*types.ImportResult, error)
 	Drop(service string, dsn *types.DSN, dbName string) (*types.DropResult, error)
+	List(service string, dsn *types.DSN, defaultDB string) (*types.DatabaseListResult, error)
 }
 
 type DockerDatabaseExecutor struct {
@@ -103,4 +105,46 @@ func (d *DockerDatabaseExecutor) Drop(service string, dsn *types.DSN, dbName str
 	}
 
 	return &types.DropResult{Database: dbName}, nil
+}
+
+func (d *DockerDatabaseExecutor) List(service string, dsn *types.DSN, defaultDB string) (*types.DatabaseListResult, error) {
+	cmd := d.engine.BuildListCommand(dsn)
+	args := append([]string{"compose", "-f", d.composeFile, "exec", "-T", service}, cmd...)
+
+	execCmd := exec.Command("docker", args...)
+	output, err := execCmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("list databases failed: %w", err)
+	}
+
+	return parseDatabaseList(string(output), defaultDB)
+}
+
+func parseDatabaseList(output, defaultDB string) (*types.DatabaseListResult, error) {
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	var databases []types.DatabaseInfo
+
+	systemDBs := map[string]bool{
+		"information_schema": true,
+		"mysql":              true,
+		"performance_schema": true,
+		"sys":                true,
+	}
+
+	for _, line := range lines {
+		name := strings.TrimSpace(line)
+		if name == "" || name == "Database" {
+			continue
+		}
+		if systemDBs[name] {
+			continue
+		}
+
+		databases = append(databases, types.DatabaseInfo{
+			Name:      name,
+			IsDefault: name == defaultDB,
+		})
+	}
+
+	return &types.DatabaseListResult{Databases: databases}, nil
 }

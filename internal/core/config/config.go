@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/mkrowiarz/mcp-symfony-stack/internal/core/dsn"
 	"github.com/mkrowiarz/mcp-symfony-stack/internal/core/types"
 )
 
@@ -96,6 +97,13 @@ func Load(projectRoot string) (*Config, error) {
 		}
 		if cfg.Database.DumpsPath == "" {
 			cfg.Database.DumpsPath = "var/dumps"
+		}
+	}
+
+	if cfg.Worktrees != nil && cfg.Worktrees.DBPrefix == "" && cfg.Database != nil {
+		parsedDSN, err := dsn.ParseDSN(cfg.Database.DSN)
+		if err == nil && parsedDSN.Database != "" {
+			cfg.Worktrees.DBPrefix = parsedDSN.Database + "_wt_"
 		}
 	}
 

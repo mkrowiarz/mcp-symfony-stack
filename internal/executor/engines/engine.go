@@ -7,5 +7,6 @@ type DatabaseEngine interface {
 	BuildCreateCommand(dsn *types.DSN, dbName string) []string
 	BuildImportCommand(dsn *types.DSN, dbName string) []string
 	BuildDropCommand(dsn *types.DSN, dbName string) []string
+	BuildListCommand(dsn *types.DSN) []string
 	Name() string
 }

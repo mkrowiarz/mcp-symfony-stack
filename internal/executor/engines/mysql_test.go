@@ -138,3 +138,23 @@ func TestMySQLEngine_Name(t *testing.T) {
 		}
 	})
 }
+
+func TestMySQLEngine_BuildListCommand(t *testing.T) {
+	engine := NewMySQLEngine(false)
+	dsn := &types.DSN{Host: "localhost", User: "root", Password: "secret"}
+
+	result := engine.BuildListCommand(dsn)
+
+	expected := []string{"mysql", "-h", "localhost", "-u", "root", "-psecret", "-e", "SHOW DATABASES"}
+
+	if len(result) != len(expected) {
+		t.Errorf("expected %d args, got %d", len(expected), len(result))
+		return
+	}
+
+	for i, v := range result {
+		if v != expected[i] {
+			t.Errorf("arg[%d] = %q, want %q", i, v, expected[i])
+		}
+	}
+}
