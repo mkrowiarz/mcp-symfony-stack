@@ -43,6 +43,10 @@ func Dump(projectRoot, dbName string, tables []string) (*types.DumpResult, error
 	destPath := filepath.Join(cfg.Database.DumpsPath,
 		fmt.Sprintf("%s_%s.sql", dbName, time.Now().Format("2006-01-02T15-04")))
 
+	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+		return nil, fmt.Errorf("failed to create dumps directory: %w", err)
+	}
+
 	return dbExecutor.Dump(cfg.Database.Service, parsedDSN, destPath, tables)
 }
 

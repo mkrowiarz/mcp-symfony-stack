@@ -61,15 +61,15 @@ func (g *GitExecutor) GitWorktreeRemove(path string) error {
 }
 
 func (g *GitExecutor) ReadFile(path string) ([]byte, error) {
-	return nil, fmt.Errorf("not implemented")
+	panic("GitExecutor.ReadFile not implemented - use FileExecutor for file operations")
 }
 
 func (g *GitExecutor) WriteFile(path string, data []byte) error {
-	return fmt.Errorf("not implemented")
+	panic("GitExecutor.WriteFile not implemented - use FileExecutor for file operations")
 }
 
 func (g *GitExecutor) FileExists(path string) bool {
-	return false
+	panic("GitExecutor.FileExists not implemented - use FileExecutor for file operations")
 }
 
 func parseWorktreeListOutput(output, toplevelPath string) ([]types.WorktreeInfo, error) {

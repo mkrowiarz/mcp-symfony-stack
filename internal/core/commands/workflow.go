@@ -10,6 +10,11 @@ type WorkflowCreateResult struct {
 }
 
 func CreateIsolatedWorktree(projectRoot, branch, newBranch, newDB string) (*WorkflowCreateResult, error) {
+	// TODO: newDB parameter is reserved for Phase 2C when database cloning
+	// will be integrated into the worktree creation workflow.
+	// Currently, only worktree operations are performed.
+	_ = newDB // unused until Phase 2C
+
 	newBranchBool, _ := strconv.ParseBool(newBranch)
 	result, err := Create(projectRoot, branch, newBranchBool)
 	if err != nil {
