@@ -101,7 +101,7 @@ type DockerCompose struct {
 }
 
 func detectDockerServices(projectRoot string) (map[string]string, error) {
-	paths := []string{"docker-compose.yaml", "docker-compose.yml", "docker-compose.yml.yaml"}
+	paths := []string{"docker-compose.yaml", "docker-compose.yml"}
 	for _, path := range paths {
 		fullPath := filepath.Join(projectRoot, path)
 		data, err := os.ReadFile(fullPath)
@@ -198,6 +198,8 @@ func generateSuggestedConfig(projectType string, services map[string]string) str
   "docker": {
     "compose_file": "docker-compose.yaml"
   }
+}
+// Note: schema.json will be generated in phase 2 from config structs
 `, projectType)
 
 	if dbService != "" {

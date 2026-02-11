@@ -1,10 +1,17 @@
 package types
 
+import "time"
+
 type ErrCode string
 
 const (
 	ErrConfigMissing ErrCode = "CONFIG_MISSING"
 	ErrConfigInvalid ErrCode = "CONFIG_INVALID"
+	ErrInvalidName   ErrCode = "INVALID_NAME"
+	ErrPathTraversal ErrCode = "PATH_TRAVERSAL"
+	ErrDbNotAllowed  ErrCode = "DB_NOT_ALLOWED"
+	ErrDbIsDefault   ErrCode = "DB_IS_DEFAULT"
+	ErrFileNotFound  ErrCode = "FILE_NOT_FOUND"
 )
 
 type CommandError struct {
@@ -43,4 +50,84 @@ type InitSuggestion struct {
 	SuggestedConfig  string            `json:"suggested_config"`
 	DetectedServices map[string]string `json:"detected_services"`
 	DetectedEnvVars  []string          `json:"detected_env_vars"`
+}
+
+type Config struct {
+	Project   *Project   `json:"project"`
+	Docker    *Docker    `json:"docker"`
+	Database  *Database  `json:"database,omitempty"`
+	Worktrees *Worktrees `json:"worktrees,omitempty"`
+}
+
+type Project struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+type Docker struct {
+	ComposeFile string `json:"compose_file,omitempty"`
+}
+
+type Database struct {
+	Service   string   `json:"service"`
+	DSN       string   `json:"dsn"`
+	Allowed   []string `json:"allowed"`
+	DumpsPath string   `json:"dumps_path,omitempty"`
+}
+
+type Worktrees struct {
+	BasePath      string `json:"base_path"`
+	DBPerWorktree bool   `json:"db_per_worktree,omitempty"`
+	DBPrefix      string `json:"db_prefix,omitempty"`
+}
+
+type WorktreeInfo struct {
+	Path   string `json:"path"`
+	Branch string `json:"branch"`
+	IsMain bool   `json:"is_main"`
+}
+
+type WorktreeCreateResult struct {
+	Path   string `json:"path"`
+	Branch string `json:"branch"`
+}
+
+type WorktreeRemoveResult struct {
+	Path string `json:"path"`
+}
+
+type WorkflowCreateResult struct {
+	WorktreePath   string `json:"worktree_path"`
+	WorktreeBranch string `json:"worktree_branch"`
+}
+
+type DumpResult struct {
+	Path     string        `json:"path"`
+	Size     int64         `json:"size"`
+	Database string        `json:"database"`
+	Duration time.Duration `json:"duration"`
+}
+
+type CreateResult struct {
+	Database string `json:"database"`
+}
+
+type ImportResult struct {
+	Path     string        `json:"path"`
+	Database string        `json:"database"`
+	Duration time.Duration `json:"duration"`
+}
+
+type DropResult struct {
+	Database string `json:"database"`
+}
+
+type DSN struct {
+	Engine        string
+	User          string
+	Password      string
+	Host          string
+	Port          string
+	Database      string
+	ServerVersion string
 }

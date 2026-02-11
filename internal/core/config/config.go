@@ -38,6 +38,9 @@ type Worktrees struct {
 	DBPrefix      string `json:"db_prefix,omitempty"`
 }
 
+// Phase 2: Database and Worktrees sections are not validated/used in phase 1
+// Database operations and worktree commands will be implemented in phase 2
+
 func Load(projectRoot string) (*Config, error) {
 	configPath := filepath.Join(projectRoot, ".claude", "project.json")
 
@@ -60,6 +63,39 @@ func Load(projectRoot string) (*Config, error) {
 		return nil, &types.CommandError{
 			Code:    types.ErrConfigInvalid,
 			Message: fmt.Sprintf("invalid JSON in config file: %v", err),
+		}
+	}
+
+	if cfg.Worktrees != nil {
+		if cfg.Worktrees.BasePath == "" {
+			return nil, &types.CommandError{
+				Code:    types.ErrConfigInvalid,
+				Message: "worktrees.base_path is required when worktrees section is present",
+			}
+		}
+	}
+
+	if cfg.Database != nil {
+		if cfg.Database.Service == "" {
+			return nil, &types.CommandError{
+				Code:    types.ErrConfigInvalid,
+				Message: "database.service is required when database section is present",
+			}
+		}
+		if cfg.Database.DSN == "" {
+			return nil, &types.CommandError{
+				Code:    types.ErrConfigInvalid,
+				Message: "database.dsn is required when database section is present",
+			}
+		}
+		if len(cfg.Database.Allowed) == 0 {
+			return nil, &types.CommandError{
+				Code:    types.ErrConfigInvalid,
+				Message: "database.allowed must have at least one pattern",
+			}
+		}
+		if cfg.Database.DumpsPath == "" {
+			cfg.Database.DumpsPath = "var/dumps"
 		}
 	}
 

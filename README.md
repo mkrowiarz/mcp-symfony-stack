@@ -32,6 +32,29 @@ Initially targeting Symfony (7/8, PHP 8.3+) but designed to be framework-agnosti
 
 Current implementation supports project information and initialization commands.
 
+### Workflow Commands
+
+**`workflow.create_isolated_worktree`**: Create isolated worktree for feature work
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/mkrowiarz/mcp-symfony-stack/internal/core/commands"
+)
+
+func main() {
+	result, err := commands.CreateIsolatedWorktree(".", "feature/abc", "true", "")
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+
+	fmt.Printf("Worktree: %s (branch: %s)\n", result.WorktreePath, result.WorktreeBranch)
+}
+```
+
 ### Project Commands
 
 **`project.info`**: Get project configuration and status
@@ -98,3 +121,155 @@ Project configuration lives in `.claude/project.json`:
 ```
 
 *Note: Phase 1 supports minimal configuration only. Database and worktrees sections will be added in phase 2.*
+
+## Phase 2A: Worktree Commands
+
+### Low-Level Commands
+
+**`worktree.list`**: List all git worktrees
+
+```go
+import "fmt"
+import "github.com/mkrowiarz/mcp-symfony-stack/internal/core/commands"
+
+func main() {
+    worktrees, _ := commands.worktree.List(".")
+    for _, wt := range worktrees {
+        marker := " "
+        if wt.IsMain {
+            marker = "*"
+        }
+        fmt.Printf("%s %s: %s (%s)\n", marker, wt.Branch, wt.Path, "main", marker)
+    }
+}
+```
+
+**`worktree.create`**: Create a git worktree
+
+```go
+result, _ := commands.worktree.Create(".", "feature/my-feature", true, "")
+fmt.Printf("Created worktree: %s\n", result.Path)
+```
+
+**`worktree.remove`**: Remove a git worktree
+
+```go
+_, _ := commands.worktree.Remove(".", "feature/my-feature")
+fmt.Println("Worktree removed")
+```
+
+### High-Level Orchestrator
+
+**`workflow.create_isolated_worktree`**: Quick one-click workflow
+
+```go
+result, _ := workflow.CreateIsolatedWorktree(".", "feature/abc", true, "")
+fmt.Printf("Worktree: %s (branch: %s)\n", result.WorktreePath, result.WorktreeBranch)
+```
+
+**Notes for Phase 2B**:
+- Phase 2A implements worktree commands only
+- Database integration (clone/drop) will be added in Phase 2B
+- Orchestrator provides one-click workflows for common cases
+- Low-level commands remain available for granular control
+
+## Phase 2B: Database Commands
+
+Essential database operations for worktree integration.
+
+### Database Commands
+
+**`db.dump`**: Dump database to SQL file
+
+```go
+import (
+    "fmt"
+    "github.com/mkrowiarz/mcp-symfony-stack/internal/core/commands"
+)
+
+func main() {
+    result, err := commands.Dump(".", "app_db", nil)
+    if err != nil {
+        fmt.Printf("Error: %v\n", err)
+        return
+    }
+    fmt.Printf("Dumped %s (%d bytes) to %s\n", result.Database, result.Size, result.Path)
+}
+```
+
+**`db.create`**: Create empty database
+
+```go
+_, err := commands.CreateDB(".", "new_db")
+if err != nil {
+    fmt.Printf("Error: %v\n", err)
+    return
+}
+fmt.Println("Database created")
+```
+
+**`db.import`**: Import SQL file into database
+
+```go
+result, err := commands.ImportDB(".", "app_db", "var/dumps/app_db.sql")
+if err != nil {
+    fmt.Printf("Error: %v\n", err)
+    return
+}
+fmt.Printf("Imported %s into %s\n", result.Path, result.Database)
+```
+
+**`db.drop`**: Drop database (protected: can't drop default)
+
+```go
+_, err := commands.DropDB(".", "old_db")
+if err != nil {
+    fmt.Printf("Error: %v\n", err)
+    return
+}
+fmt.Println("Database dropped")
+```
+
+### Configuration
+
+Database operations require the `database` section in `.claude/project.json`:
+
+```json
+{
+  "project": {
+    "name": "your-project",
+    "type": "symfony"
+  },
+  "docker": {
+    "compose_file": "docker-compose.yaml"
+  },
+  "database": {
+    "service": "database",
+    "dsn": "mysql://root:${DATABASE_PASSWORD}@database:3306/app",
+    "allowed": ["app", "app_*"],
+    "dumps_path": "var/dumps"
+  }
+}
+```
+
+**Configuration fields:**
+- `database.service`: Docker Compose service name for database
+- `database.dsn`: Database URL (supports `mysql://`, `postgresql://`, env var interpolation)
+- `database.allowed`: Glob patterns for allowed database names (e.g., `["app", "app_*"]`)
+- `database.dumps_path`: Directory for SQL dumps (default: `var/dumps`)
+
+**Safety guards:**
+- Only databases matching `allowed` patterns can be operated on
+- The default database (from DSN) cannot be dropped
+- Database config is required for all database operations
+
+**Supported engines:**
+- MySQL (default port: 3306)
+- MariaDB (detected via `serverVersion` query param)
+- PostgreSQL (planned, default port: 5432)
+
+### Notes
+
+- Phase 2B implements essential database operations only
+- `db.list`, `db.clone`, `db.dumps` will be added in future phases
+- MySQL/MariaDB fully supported, PostgreSQL support planned
