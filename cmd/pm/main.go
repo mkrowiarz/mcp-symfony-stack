@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	mcpFlag := flag.Bool("mcp", false, "Run as MCP server")
+	mcpFlag := flag.Bool("mcp", false, "Run as MCP server (stdio transport)")
 	flag.Parse()
 
 	if *mcpFlag {
