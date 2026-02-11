@@ -23,12 +23,14 @@ type DatabaseExecutor interface {
 type DockerDatabaseExecutor struct {
 	engine       engines.DatabaseEngine
 	composeFiles []string
+	projectRoot  string
 }
 
-func NewDockerDatabaseExecutor(engine engines.DatabaseEngine, composeFiles []string) *DockerDatabaseExecutor {
+func NewDockerDatabaseExecutor(engine engines.DatabaseEngine, composeFiles []string, projectRoot string) *DockerDatabaseExecutor {
 	return &DockerDatabaseExecutor{
 		engine:       engine,
 		composeFiles: composeFiles,
+		projectRoot:  projectRoot,
 	}
 }
 
@@ -49,6 +51,7 @@ func (d *DockerDatabaseExecutor) Dump(service string, dsn *types.DSN, destPath s
 	args := append(d.buildComposeArgs("exec", "-T", service), cmd...)
 
 	execCmd := exec.Command("docker", args...)
+	execCmd.Dir = d.projectRoot
 	output, err := execCmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("dump failed: %w", err)
@@ -73,6 +76,7 @@ func (d *DockerDatabaseExecutor) Create(service string, dsn *types.DSN, dbName s
 	args := append(d.buildComposeArgs("exec", "-T", service), cmd...)
 
 	execCmd := exec.Command("docker", args...)
+	execCmd.Dir = d.projectRoot
 	if err := execCmd.Run(); err != nil {
 		return nil, fmt.Errorf("create database failed: %w", err)
 	}
@@ -92,6 +96,7 @@ func (d *DockerDatabaseExecutor) Import(service string, dsn *types.DSN, sourcePa
 	args := append(d.buildComposeArgs("exec", "-T", service), cmd...)
 
 	execCmd := exec.Command("docker", args...)
+	execCmd.Dir = d.projectRoot
 	execCmd.Stdin = bytes.NewReader(sqlData)
 
 	if err := execCmd.Run(); err != nil {
@@ -110,6 +115,7 @@ func (d *DockerDatabaseExecutor) Drop(service string, dsn *types.DSN, dbName str
 	args := append(d.buildComposeArgs("exec", "-T", service), cmd...)
 
 	execCmd := exec.Command("docker", args...)
+	execCmd.Dir = d.projectRoot
 	if err := execCmd.Run(); err != nil {
 		return nil, fmt.Errorf("drop database failed: %w", err)
 	}
@@ -122,9 +128,10 @@ func (d *DockerDatabaseExecutor) List(service string, dsn *types.DSN, defaultDB 
 	args := append(d.buildComposeArgs("exec", "-T", service), cmd...)
 
 	execCmd := exec.Command("docker", args...)
-	output, err := execCmd.Output()
+	execCmd.Dir = d.projectRoot
+	output, err := execCmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("list databases failed: %w", err)
+		return nil, fmt.Errorf("list databases failed: %w\nOutput: %s", err, string(output))
 	}
 
 	return parseDatabaseList(string(output), defaultDB)
