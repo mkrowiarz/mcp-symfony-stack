@@ -773,15 +773,19 @@ func (m Model) renderDumpsPane(dumps []dumpInfo, paneNum, width int) string {
 	var lines []string
 	for i := scrollOffset; i < endIdx; i++ {
 		d := dumps[i]
-		name := d.name
-		size := d.size
 
-		nameStyle := lipgloss.NewStyle().Width(contentWidth - 10).MaxWidth(contentWidth - 10)
-		sizeStyle := lipgloss.NewStyle().Width(8).Align(lipgloss.Right)
+		nameWidth := contentWidth - 22
+		dateWidth := 11
+		sizeWidth := 8
+
+		nameStyle := lipgloss.NewStyle().Width(nameWidth).MaxWidth(nameWidth)
+		dateStyle := lipgloss.NewStyle().Width(dateWidth).Align(lipgloss.Right)
+		sizeStyle := lipgloss.NewStyle().Width(sizeWidth).Align(lipgloss.Right)
 
 		line := lipgloss.JoinHorizontal(lipgloss.Top,
-			nameStyle.Render(name),
-			sizeStyle.Render(size),
+			nameStyle.Render(d.name),
+			dateStyle.Render(d.date),
+			sizeStyle.Render(d.size),
 		)
 
 		if i == selectedIdx && m.focusedPane == paneNum {
