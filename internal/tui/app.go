@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -609,10 +610,10 @@ func (m Model) View() string {
 		return "Loading..."
 	}
 
-	halfWidth := (m.width - 3) / 2
+	paneWidth := m.width - 4
 
-	infoContent := fmt.Sprintf("Project: %s\nType: %s\nCompose: %s", m.projectName, m.projectType, m.projectStatus)
-	infoPane := m.renderPane("Info", infoContent, 1, halfWidth)
+	infoContent := fmt.Sprintf("Project: %s | Type: %s | Compose: %s", m.projectName, m.projectType, m.projectStatus)
+	infoPane := m.renderPane("Info", infoContent, 1, paneWidth)
 
 	wtContent := ""
 	selectedIdx := m.selectedIndex[2]
@@ -625,12 +626,14 @@ func (m Model) View() string {
 		if i == selectedIdx && m.focusedPane == 2 {
 			line = selectedItemStyle.Render(line)
 		}
-		wtContent += line + "\n"
+		wtContent += line + " | "
 	}
 	if wtContent == "" {
 		wtContent = "No worktrees"
+	} else {
+		wtContent = strings.TrimSuffix(wtContent, " | ")
 	}
-	worktreesPane := m.renderPane("Worktrees", wtContent, 2, halfWidth)
+	worktreesPane := m.renderPane("Worktrees", wtContent, 2, paneWidth)
 
 	dbContent := ""
 	selectedIdx = m.selectedIndex[3]
@@ -643,12 +646,14 @@ func (m Model) View() string {
 		if i == selectedIdx && m.focusedPane == 3 {
 			line = selectedItemStyle.Render(line)
 		}
-		dbContent += line + "\n"
+		dbContent += line + " | "
 	}
 	if dbContent == "" {
 		dbContent = "No databases"
+	} else {
+		dbContent = strings.TrimSuffix(dbContent, " | ")
 	}
-	dbPane := m.renderPane("Databases", dbContent, 3, halfWidth)
+	dbPane := m.renderPane("Databases", dbContent, 3, paneWidth)
 
 	dumpsContent := ""
 	selectedIdx = m.selectedIndex[4]
@@ -657,16 +662,16 @@ func (m Model) View() string {
 		if i == selectedIdx && m.focusedPane == 4 {
 			line = selectedItemStyle.Render(line)
 		}
-		dumpsContent += line + "\n"
+		dumpsContent += line + " | "
 	}
 	if dumpsContent == "" {
 		dumpsContent = "No dumps"
+	} else {
+		dumpsContent = strings.TrimSuffix(dumpsContent, " | ")
 	}
-	dumpsPane := m.renderPane("Dumps", dumpsContent, 4, halfWidth)
+	dumpsPane := m.renderPane("Dumps", dumpsContent, 4, paneWidth)
 
-	topRow := lipgloss.JoinHorizontal(lipgloss.Top, infoPane, worktreesPane)
-	bottomRow := lipgloss.JoinHorizontal(lipgloss.Top, dbPane, dumpsPane)
-	mainLayout := lipgloss.JoinVertical(lipgloss.Left, topRow, bottomRow)
+	mainLayout := lipgloss.JoinVertical(lipgloss.Left, infoPane, worktreesPane, dbPane, dumpsPane)
 
 	statusBar := statusBarStyle.Width(m.width).Render(m.statusBarText())
 
