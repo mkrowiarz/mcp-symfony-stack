@@ -221,18 +221,21 @@ func detectDatabase(projectRoot string, services map[string]string) (service, db
 		return "", ""
 	}
 
-	envPath := filepath.Join(projectRoot, ".env")
-	if data, err := os.ReadFile(envPath); err == nil {
-		lines := strings.Split(string(data), "\n")
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if strings.HasPrefix(line, "DATABASE_URL=") {
-				dsn := strings.TrimPrefix(line, "DATABASE_URL=")
-				dsn = strings.Trim(dsn, "\"'")
-				if parsed, err := url.Parse(dsn); err == nil {
-					dbName = strings.TrimPrefix(parsed.Path, "/")
+	envFiles := []string{".env", ".env.local"}
+	for _, envFile := range envFiles {
+		envPath := filepath.Join(projectRoot, envFile)
+		if data, err := os.ReadFile(envPath); err == nil {
+			lines := strings.Split(string(data), "\n")
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if strings.HasPrefix(line, "DATABASE_URL=") {
+					dsn := strings.TrimPrefix(line, "DATABASE_URL=")
+					dsn = strings.Trim(dsn, "\"'")
+					if parsed, err := url.Parse(dsn); err == nil {
+						dbName = strings.TrimPrefix(parsed.Path, "/")
+					}
+					return service, dbName
 				}
-				break
 			}
 		}
 	}
