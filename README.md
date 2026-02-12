@@ -2,12 +2,58 @@
 
 A standalone tool for managing Docker Compose-based development projects. Provides TUI, MCP server, and CLI interfaces for database operations and git worktree management.
 
+## Installation
+
+### Build
+
+```bash
+git clone https://github.com/mkrowiarz/mcp-symfony-stack.git
+cd mcp-symfony-stack
+go build -o pm ./cmd/pm
+```
+
+### Install to PATH
+
+**Option 1: User-local (recommended)**
+
+```bash
+mkdir -p ~/.local/bin
+cp pm ~/.local/bin/
+```
+
+**Option 2: System-wide**
+
+```bash
+sudo cp pm /usr/local/bin/
+```
+
+### Add to PATH (if needed)
+
+**Bash** (~/.bashrc or ~/.bash_profile):
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+**Fish** (~/.config/fish/config.fish):
+
+```fish
+set -gx PATH $HOME/.local/bin $PATH
+```
+
+Then reload your shell or run:
+
+```bash
+# Bash
+source ~/.bashrc
+
+# Fish
+source ~/.config/fish/config.fish
+```
+
 ## Quick Start
 
 ```bash
-# Build
-go build -o pm ./cmd/pm
-
 # Initialize config for your project
 cd /path/to/your/project
 pm init > .haive/config.json
