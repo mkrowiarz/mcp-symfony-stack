@@ -46,6 +46,7 @@ type Model struct {
 	modalMessage string
 	showError    bool
 	errorMessage string
+	showHelp     bool
 
 	inputMode   inputMode
 	inputValue  string
@@ -190,13 +191,13 @@ func (m Model) statusBarText() string {
 	}
 	switch m.focusedPane {
 	case 2:
-		return "[n]ew [x]remove [o]pen [Tab]switch [q]uit"
+		return "[n]ew [x]remove [o]pen [?]help [q]uit"
 	case 3:
-		return "[d]ump [c]lone [x]drop [Tab]switch [q]uit"
+		return "[d]ump [c]lone [x]drop [?]help [q]uit"
 	case 4:
-		return "[i]mport [x]delete [Tab]switch [q]uit"
+		return "[i]mport [x]delete [?]help [q]uit"
 	default:
-		return "[Tab]switch [R]efresh all [q]uit"
+		return "[Tab]switch [R]efresh all [?]help [q]uit"
 	}
 }
 
@@ -396,6 +397,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		if m.showHelp {
+			if msg.String() == "?" || msg.String() == "esc" || msg.String() == "q" {
+				m.showHelp = false
+			}
+			return m, nil
+		}
+
 		if m.inputMode != inputModeNone {
 			return m.handleInputMode(msg)
 		}
@@ -407,6 +415,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
+		case "?":
+			m.showHelp = true
 		case "tab":
 			m.focusedPane = m.focusedPane%4 + 1
 		case "1", "2", "3", "4":
@@ -667,6 +677,10 @@ func (m Model) View() string {
 		return m.renderErrorOverlay(baseView)
 	}
 
+	if m.showHelp {
+		return m.renderHelpOverlay(baseView)
+	}
+
 	if m.showModal {
 		return m.renderModalOverlay(baseView)
 	}
@@ -715,6 +729,55 @@ func (m Model) renderErrorOverlay(baseView string) string {
 		m.width, m.height,
 		lipgloss.Center, lipgloss.Center,
 		errorBox,
+		lipgloss.WithWhitespaceChars(" "),
+		lipgloss.WithWhitespaceForeground(lipgloss.Color("#000000")),
+	)
+
+	return baseView + "\n" + lipgloss.NewStyle().
+		Width(m.width).
+		Height(m.height).
+		Render(overlay)
+}
+
+func (m Model) renderHelpOverlay(baseView string) string {
+	helpText := `Keyboard Shortcuts
+
+Navigation:
+  Tab/Shift+Tab  Cycle panes
+  1-4           Jump to pane
+  ↑/↓ or j/k    Navigate items
+
+Databases (pane 3):
+  d             Dump selected database
+  c             Clone to new database
+  x             Drop database (with confirmation)
+
+Worktrees (pane 2):
+  n             Create new worktree
+  x             Remove worktree (with confirmation)
+  o             Open in terminal
+
+Dumps (pane 4):
+  i             Import dump file
+  x             Delete dump file
+
+General:
+  r             Refresh current pane
+  R             Refresh all panes
+  ?             Toggle this help
+  q             Quit`
+
+	helpBox := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(primaryColor).
+		Padding(1, 2).
+		Width(50).
+		Render(helpText)
+
+	overlay := lipgloss.Place(
+		m.width, m.height,
+		lipgloss.Center, lipgloss.Center,
+		helpBox,
 		lipgloss.WithWhitespaceChars(" "),
 		lipgloss.WithWhitespaceForeground(lipgloss.Color("#000000")),
 	)
