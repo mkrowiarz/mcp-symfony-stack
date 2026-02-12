@@ -641,11 +641,7 @@ func (m Model) View() string {
 	}
 	dbPane := m.renderListPane("Databases", dbItems, 3, paneWidth)
 
-	var dumpItems []string
-	for _, d := range m.dumps {
-		dumpItems = append(dumpItems, fmt.Sprintf("%s (%s)", d.name, d.size))
-	}
-	dumpsPane := m.renderListPane("Dumps", dumpItems, 4, paneWidth)
+	dumpsPane := m.renderDumpsPane(m.dumps, 4, paneWidth)
 
 	mainLayout := lipgloss.JoinVertical(lipgloss.Left, infoPane, worktreesPane, dbPane, dumpsPane)
 
@@ -740,6 +736,69 @@ func (m Model) clampScrollOffset(paneNum int) {
 	} else if selectedIdx >= scrollOffset+maxVisibleLines {
 		m.scrollOffset[paneNum] = selectedIdx - maxVisibleLines + 1
 	}
+}
+
+func (m Model) renderDumpsPane(dumps []dumpInfo, paneNum, width int) string {
+	style := paneStyle
+	if m.focusedPane == paneNum {
+		style = focusedPaneStyle
+	}
+
+	totalItems := len(dumps)
+	scrollOffset := m.scrollOffset[paneNum]
+	selectedIdx := m.selectedIndex[paneNum]
+
+	scrollIndicator := ""
+	if totalItems > maxVisibleLines {
+		hasAbove := scrollOffset > 0
+		hasBelow := scrollOffset+maxVisibleLines < totalItems
+		if hasAbove && hasBelow {
+			scrollIndicator = " ↑↓"
+		} else if hasAbove {
+			scrollIndicator = " ↑"
+		} else if hasBelow {
+			scrollIndicator = " ↓"
+		}
+	}
+
+	header := titleStyle.Render(fmt.Sprintf("[%d] %s%s", paneNum, "Dumps", scrollIndicator))
+
+	endIdx := scrollOffset + maxVisibleLines
+	if endIdx > totalItems {
+		endIdx = totalItems
+	}
+
+	contentWidth := width - 6
+
+	var lines []string
+	for i := scrollOffset; i < endIdx; i++ {
+		d := dumps[i]
+		name := d.name
+		size := d.size
+
+		nameStyle := lipgloss.NewStyle().Width(contentWidth - 10).MaxWidth(contentWidth - 10)
+		sizeStyle := lipgloss.NewStyle().Width(8).Align(lipgloss.Right)
+
+		line := lipgloss.JoinHorizontal(lipgloss.Top,
+			nameStyle.Render(name),
+			sizeStyle.Render(size),
+		)
+
+		if i == selectedIdx && m.focusedPane == paneNum {
+			line = selectedItemStyle.Render(lipgloss.NewStyle().Width(contentWidth).Render(line))
+		}
+		lines = append(lines, line)
+	}
+
+	content := strings.Join(lines, "\n")
+	if content == "" {
+		content = "No dumps"
+	}
+
+	body := lipgloss.NewStyle().Padding(0, 1).Render(content)
+
+	pane := lipgloss.JoinVertical(lipgloss.Left, header, body)
+	return style.Width(width).Render(pane)
 }
 
 func (m Model) renderModalOverlay(baseView string) string {
