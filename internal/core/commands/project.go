@@ -2,7 +2,8 @@ package commands
 
 import (
 	"encoding/json"
-	"fmt"
+	"io/fs"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,23 +49,26 @@ func Init(projectRoot string) (*types.InitSuggestion, error) {
 		projectRoot = "."
 	}
 
-	detectedServices, err := detectDockerServices(projectRoot)
+	composeFiles := findComposeFiles(projectRoot)
+	services, err := detectDockerServices(projectRoot, composeFiles)
 	if err != nil {
 		return nil, err
 	}
 
 	projectType := detectProjectType(projectRoot)
+	projectName := detectProjectName(projectRoot)
+	dbService, dbName := detectDatabase(projectRoot, services)
 
 	detectedEnvVars, err := detectEnvVars(projectRoot)
 	if err != nil {
 		return nil, err
 	}
 
-	suggestedConfig := generateSuggestedConfig(projectType, detectedServices)
+	suggestedConfig := generateSuggestedConfig(projectName, projectType, composeFiles, dbService, dbName)
 
 	return &types.InitSuggestion{
 		SuggestedConfig:  suggestedConfig,
-		DetectedServices: detectedServices,
+		DetectedServices: services,
 		DetectedEnvVars:  detectedEnvVars,
 	}, nil
 }
@@ -94,16 +98,51 @@ func dockerComposeExists(projectRoot string) bool {
 	return false
 }
 
+func findComposeFiles(projectRoot string) []string {
+	var files []string
+
+	rootPatterns := []string{
+		"compose.yaml", "compose.yml",
+		"docker-compose.yaml", "docker-compose.yml",
+	}
+	for _, p := range rootPatterns {
+		fullPath := filepath.Join(projectRoot, p)
+		if _, err := os.Stat(fullPath); err == nil {
+			if !strings.Contains(strings.ToLower(p), "prod") {
+				files = append(files, p)
+			}
+		}
+	}
+
+	dockerDir := filepath.Join(projectRoot, "docker")
+	filepath.WalkDir(dockerDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		name := strings.ToLower(d.Name())
+		if (strings.HasPrefix(name, "compose") || strings.HasPrefix(name, "docker-compose")) &&
+			(strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml")) &&
+			!strings.Contains(name, "prod") {
+			relPath, _ := filepath.Rel(projectRoot, path)
+			files = append(files, relPath)
+		}
+		return nil
+	})
+
+	return files
+}
+
 type DockerCompose struct {
 	Services map[string]struct {
 		Image string `yaml:"image"`
 	} `yaml:"services"`
 }
 
-func detectDockerServices(projectRoot string) (map[string]string, error) {
-	paths := []string{"compose.yaml", "compose.yml", "docker-compose.yaml", "docker-compose.yml"}
-	for _, path := range paths {
-		fullPath := filepath.Join(projectRoot, path)
+func detectDockerServices(projectRoot string, composeFiles []string) (map[string]string, error) {
+	services := make(map[string]string)
+
+	for _, composeFile := range composeFiles {
+		fullPath := filepath.Join(projectRoot, composeFile)
 		data, err := os.ReadFile(fullPath)
 		if err != nil {
 			continue
@@ -114,15 +153,12 @@ func detectDockerServices(projectRoot string) (map[string]string, error) {
 			continue
 		}
 
-		services := make(map[string]string)
 		for name, svc := range dc.Services {
 			services[name] = svc.Image
 		}
-
-		return services, nil
 	}
 
-	return nil, nil
+	return services, nil
 }
 
 type ComposerJSON struct {
@@ -150,6 +186,58 @@ func detectProjectType(projectRoot string) string {
 	default:
 		return "generic"
 	}
+}
+
+func detectProjectName(projectRoot string) string {
+	composerPath := filepath.Join(projectRoot, "composer.json")
+	if data, err := os.ReadFile(composerPath); err == nil {
+		var composer struct {
+			Name string `json:"name"`
+		}
+		if json.Unmarshal(data, &composer) == nil && composer.Name != "" {
+			parts := strings.Split(composer.Name, "/")
+			if len(parts) == 2 {
+				return parts[1]
+			}
+			return composer.Name
+		}
+	}
+
+	return filepath.Base(projectRoot)
+}
+
+func detectDatabase(projectRoot string, services map[string]string) (service, dbName string) {
+	for name, img := range services {
+		imgLower := strings.ToLower(img)
+		if strings.Contains(imgLower, "mysql") ||
+			strings.Contains(imgLower, "mariadb") ||
+			strings.Contains(imgLower, "postgres") {
+			service = name
+			break
+		}
+	}
+
+	if service == "" {
+		return "", ""
+	}
+
+	envPath := filepath.Join(projectRoot, ".env")
+	if data, err := os.ReadFile(envPath); err == nil {
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "DATABASE_URL=") {
+				dsn := strings.TrimPrefix(line, "DATABASE_URL=")
+				dsn = strings.Trim(dsn, "\"'")
+				if parsed, err := url.Parse(dsn); err == nil {
+					dbName = strings.TrimPrefix(parsed.Path, "/")
+				}
+				break
+			}
+		}
+	}
+
+	return service, dbName
 }
 
 func detectEnvVars(projectRoot string) ([]string, error) {
@@ -180,44 +268,27 @@ func detectEnvVars(projectRoot string) ([]string, error) {
 	return vars, nil
 }
 
-func generateSuggestedConfig(projectType string, services map[string]string) string {
-	var dbService string
-	for name, img := range services {
-		if strings.Contains(img, "mysql") || strings.Contains(img, "mariadb") || strings.Contains(img, "postgres") {
-			dbService = name
-			break
+func generateSuggestedConfig(projectName, projectType string, composeFiles []string, dbService, dbName string) string {
+	cfg := map[string]interface{}{
+		"$schema": "https://raw.githubusercontent.com/mkrowiarz/mcp-symfony-stack/main/schema.json",
+		"project": map[string]string{
+			"name": projectName,
+			"type": projectType,
+		},
+		"docker": map[string]interface{}{
+			"compose_files": composeFiles,
+		},
+	}
+
+	if dbService != "" && dbName != "" {
+		cfg["database"] = map[string]interface{}{
+			"service":    dbService,
+			"dsn":        "${DATABASE_URL}",
+			"allowed":    []string{},
+			"dumps_path": "var/dumps",
 		}
 	}
 
-	suggested := fmt.Sprintf(`{
-  "$schema": "https://raw.githubusercontent.com/mkrowiarz/mcp-symfony-stack/main/schema.json",
-  "project": {
-    "name": "<your-project-name>",
-    "type": "%s"
-  },
-  "docker": {
-    "compose_files": ["compose.yaml"]
-  }
-}
-// Note: schema.json will be generated in phase 2 from config structs
-`, projectType)
-
-	if dbService != "" {
-		suggested += `,
-  "database": {
-    "service": "%s",
-    "dsn": "${DATABASE_URL}",
-    "allowed": ["<your-database-name>", "<your-database-name>_test", "<your-database-name>_wt_*"],
-    "dumps_path": "var/dumps"
-  }
-`
-	}
-
-	suggested += `
-}`
-
-	if dbService != "" {
-		return fmt.Sprintf(suggested, dbService)
-	}
-	return suggested
+	data, _ := json.MarshalIndent(cfg, "", "  ")
+	return string(data)
 }
