@@ -3,6 +3,7 @@ package commands
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -142,16 +143,17 @@ func TestDetectDockerServices(t *testing.T) {
 		tmpDir := t.TempDir()
 		composePath := filepath.Join(tmpDir, "docker-compose.yaml")
 		composeContent := `services:
-  php:
-    image: php:8.3-fpm
-  database:
-    image: mariadb:11.4
-  redis:
-    image: redis:7-alpine
+   php:
+     image: php:8.3-fpm
+   database:
+     image: mariadb:11.4
+   redis:
+     image: redis:7-alpine
 `
 		os.WriteFile(composePath, []byte(composeContent), 0644)
 
-		services, err := detectDockerServices(tmpDir)
+		composeFiles := findComposeFiles(tmpDir)
+		services, err := detectDockerServices(tmpDir, composeFiles)
 
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -172,17 +174,18 @@ func TestDetectDockerServices(t *testing.T) {
 		}
 	})
 
-	t.Run("no compose file returns nil", func(t *testing.T) {
+	t.Run("no compose file returns empty map", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		services, err := detectDockerServices(tmpDir)
+		composeFiles := findComposeFiles(tmpDir)
+		services, err := detectDockerServices(tmpDir, composeFiles)
 
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 			return
 		}
 
-		if services != nil {
-			t.Error("expected nil services, got map")
+		if len(services) != 0 {
+			t.Errorf("expected empty services map, got %d services", len(services))
 		}
 	})
 }
@@ -321,6 +324,72 @@ func TestInit(t *testing.T) {
 
 		if suggestion.SuggestedConfig == "" {
 			t.Error("expected non-empty SuggestedConfig")
+		}
+	})
+}
+
+func TestFindComposeFiles(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	os.WriteFile(filepath.Join(tmpDir, "compose.yaml"), []byte{}, 0644)
+	os.MkdirAll(filepath.Join(tmpDir, "docker", "dev"), 0755)
+	os.WriteFile(filepath.Join(tmpDir, "docker", "dev", "compose.app.yaml"), []byte{}, 0644)
+	os.WriteFile(filepath.Join(tmpDir, "docker", "dev", "compose.prod.yaml"), []byte{}, 0644)
+
+	files := findComposeFiles(tmpDir)
+
+	if len(files) != 2 {
+		t.Errorf("expected 2 files, got %d: %v", len(files), files)
+	}
+
+	for _, f := range files {
+		if strings.Contains(f, "prod") {
+			t.Errorf("should not include prod files: %s", f)
+		}
+	}
+}
+
+func TestDetectProjectName(t *testing.T) {
+	t.Run("from composer.json", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		os.WriteFile(filepath.Join(tmpDir, "composer.json"), []byte(`{"name": "acme/phoenix"}`), 0644)
+
+		name := detectProjectName(tmpDir)
+		if name != "phoenix" {
+			t.Errorf("expected 'phoenix', got '%s'", name)
+		}
+	})
+
+	t.Run("from directory", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		name := detectProjectName(tmpDir)
+		expected := filepath.Base(tmpDir)
+		if name != expected {
+			t.Errorf("expected '%s', got '%s'", expected, name)
+		}
+	})
+}
+
+func TestDetectDatabase(t *testing.T) {
+	t.Run("detects mysql service", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		services := map[string]string{"database": "mariadb:10.5", "php": "app-php"}
+		os.WriteFile(filepath.Join(tmpDir, ".env"), []byte(`DATABASE_URL=mysql://root:pass@localhost:3306/mytower_eu`), 0644)
+
+		service, dbName := detectDatabase(tmpDir, services)
+		if service != "database" {
+			t.Errorf("expected 'database', got '%s'", service)
+		}
+		if dbName != "mytower_eu" {
+			t.Errorf("expected 'mytower_eu', got '%s'", dbName)
+		}
+	})
+
+	t.Run("no database service", func(t *testing.T) {
+		services := map[string]string{"php": "app-php"}
+		service, dbName := detectDatabase(".", services)
+		if service != "" || dbName != "" {
+			t.Errorf("expected empty, got '%s' '%s'", service, dbName)
 		}
 	})
 }
