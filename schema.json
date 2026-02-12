@@ -1,0 +1,103 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/mkrowiarz/mcp-symfony-stack/main/schema.json",
+  "title": "PM Project Configuration",
+  "description": "Configuration file for pm - Project Manager",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference"
+    },
+    "project": {
+      "type": "object",
+      "description": "Project metadata",
+      "required": ["name", "type"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Project name for display"
+        },
+        "type": {
+          "type": "string",
+          "description": "Project type",
+          "enum": ["symfony", "laravel", "generic"],
+          "default": "generic"
+        }
+      },
+      "additionalProperties": false
+    },
+    "docker": {
+      "type": "object",
+      "description": "Docker Compose configuration",
+      "required": ["compose_files"],
+      "properties": {
+        "compose_files": {
+          "type": "array",
+          "description": "List of Docker Compose files (relative to project root)",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "database": {
+      "type": "object",
+      "description": "Database configuration",
+      "required": ["service", "dsn"],
+      "properties": {
+        "service": {
+          "type": "string",
+          "description": "Docker Compose service name for the database"
+        },
+        "dsn": {
+          "type": "string",
+          "description": "Database connection URL. Supports ${VAR} interpolation from .env files",
+          "examples": [
+            "mysql://root:password@database:3306/app",
+            "${DATABASE_URL}"
+          ]
+        },
+        "allowed": {
+          "type": "array",
+          "description": "Glob patterns for allowed database names. Omit to allow all databases",
+          "items": {
+            "type": "string"
+          },
+          "examples": [["app", "app_*"]]
+        },
+        "dumps_path": {
+          "type": "string",
+          "description": "Directory for SQL dump files",
+          "default": "var/dumps"
+        }
+      },
+      "additionalProperties": false
+    },
+    "worktrees": {
+      "type": "object",
+      "description": "Git worktree configuration",
+      "required": ["base_path"],
+      "properties": {
+        "base_path": {
+          "type": "string",
+          "description": "Base directory for worktrees"
+        },
+        "db_per_worktree": {
+          "type": "boolean",
+          "description": "Automatically create a database for each worktree",
+          "default": false
+        },
+        "db_prefix": {
+          "type": "string",
+          "description": "Prefix for worktree databases (auto-generated if omitted)"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["project", "docker"],
+  "additionalProperties": false
+}

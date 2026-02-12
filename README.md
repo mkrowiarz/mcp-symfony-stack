@@ -1,275 +1,153 @@
-# mcp-symfony-stack
+# pm - Project Manager
 
-A standalone, reusable tool for managing Docker Compose-based development projects. Provides both an interactive TUI (Terminal UI) and an MCP server for Claude Code, enabling database operations and git worktree management.
+A standalone tool for managing Docker Compose-based development projects. Provides TUI, MCP server, and CLI interfaces for database operations and git worktree management.
 
-## Purpose
+## Quick Start
 
-- **TUI Mode**: Interactive terminal interface for database dumps/imports, worktree creation/removal, and project status
-- **MCP Mode**: Stdio-based MCP server for Claude Code to manage infrastructure through `.claude/project.json`
-- **CLI Mode**: One-shot commands for scripting and automation
+```bash
+# Build
+go build -o pm ./cmd/pm
 
-Initially targeting Symfony (7/8, PHP 8.3+) but designed to be framework-agnostic where possible.
+# Initialize config for your project
+cd /path/to/your/project
+pm init > .haive/config.json
 
-## Main Assumptions
+# Run interactive TUI
+pm
 
-- **Docker Compose is the runtime** — all database interactions happen via `docker compose exec`
-- **Config-driven** — project-specific knowledge lives in `.claude/project.json`; the tool is stateless and generic
-- **Env var resolution** — config values can reference `.env`/`.env.local` variables using `${VAR_NAME}` syntax
-- **Safety by default** — database operations restricted to an explicit allowlist; default database cannot be dropped
-- **Refuse without config** — any infrastructure operation requires valid project configuration
-
-## Technology Stack
-
-| Layer | Technology | Rationale |
-|-------|-----------|-----------|
-| Language | **Go** | Single binary, fast startup, excellent exec/process handling |
-| TUI | **Bubble Tea** + **Lip Gloss** | Industry standard for Go TUIs (lazygit, lazydocker) |
-| MCP | **mcp-go** (`mark3labs/mcp-go`) | Go MCP SDK with stdio transport support |
-| Config | **JSON + JSON Schema** | Native parsing, editor autocompletion via `$schema` |
-| CLI | **cobra** or bare `os.Args` | One-shot commands for scripting |
-
-## Phase 1: Core Library (Project Commands)
-
-Current implementation supports project information and initialization commands.
-
-### Workflow Commands
-
-**`workflow.create_isolated_worktree`**: Create isolated worktree for feature work
-
-```go
-package main
-
-import (
-	"fmt"
-	"github.com/mkrowiarz/mcp-symfony-stack/internal/core/commands"
-)
-
-func main() {
-	result, err := commands.CreateIsolatedWorktree(".", "feature/abc", "true", "")
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-
-	fmt.Printf("Worktree: %s (branch: %s)\n", result.WorktreePath, result.WorktreeBranch)
-}
+# Or use as MCP server for Claude Code
+pm --mcp
 ```
 
-### Project Commands
+## Configuration
 
-**`project.info`**: Get project configuration and status
+Config file locations (checked in order):
+1. `.haive/config.json`
+2. `.haive.json`
 
-```go
-package main
-
-import (
-    "fmt"
-    "github.com/mkrowiarz/mcp-symfony-stack/internal/core/commands"
-)
-
-func main() {
-    info, err := commands.Info(".")
-    if err != nil {
-        fmt.Printf("Error: %v\n", err)
-        return
-    }
-
-    fmt.Printf("Project: %s (%s)\n", info.ConfigSummary.Name, info.ConfigSummary.Type)
-    fmt.Printf("Docker Compose: %v\n", info.DockerComposeExists)
-    fmt.Printf("Env files: %v\n", info.EnvFiles)
-}
-```
-
-**`project.init`**: Generate suggested project configuration
-
-```go
-package main
-
-import (
-    "fmt"
-    "github.com/mkrowiarz/mcp-symfony-stack/internal/core/commands"
-)
-
-func main() {
-    suggestion, err := commands.Init(".")
-    if err != nil {
-        fmt.Printf("Error: %v\n", err)
-        return
-    }
-
-    fmt.Println("Suggested configuration:")
-    fmt.Println(suggestion.SuggestedConfig)
-    fmt.Printf("\nDetected services: %v\n", suggestion.DetectedServices)
-    fmt.Printf("Detected env vars: %v\n", suggestion.DetectedEnvVars)
-}
-```
-
-### Configuration File
-
-Project configuration lives in `.claude/project.json`:
+### Minimal Config
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/mkrowiarz/mcp-symfony-stack/main/schema.json",
   "project": {
-    "name": "your-project",
+    "name": "my-project",
     "type": "symfony"
   },
   "docker": {
-    "compose_file": "docker-compose.yaml"
+    "compose_files": ["docker-compose.yaml"]
   }
 }
 ```
 
-*Note: Phase 1 supports minimal configuration only. Database and worktrees sections will be added in phase 2.*
-
-## Phase 2A: Worktree Commands
-
-### Low-Level Commands
-
-**`worktree.list`**: List all git worktrees
-
-```go
-import "fmt"
-import "github.com/mkrowiarz/mcp-symfony-stack/internal/core/commands"
-
-func main() {
-    worktrees, _ := commands.worktree.List(".")
-    for _, wt := range worktrees {
-        marker := " "
-        if wt.IsMain {
-            marker = "*"
-        }
-        fmt.Printf("%s %s: %s (%s)\n", marker, wt.Branch, wt.Path, "main", marker)
-    }
-}
-```
-
-**`worktree.create`**: Create a git worktree
-
-```go
-result, _ := commands.worktree.Create(".", "feature/my-feature", true, "")
-fmt.Printf("Created worktree: %s\n", result.Path)
-```
-
-**`worktree.remove`**: Remove a git worktree
-
-```go
-_, _ := commands.worktree.Remove(".", "feature/my-feature")
-fmt.Println("Worktree removed")
-```
-
-### High-Level Orchestrator
-
-**`workflow.create_isolated_worktree`**: Quick one-click workflow
-
-```go
-result, _ := workflow.CreateIsolatedWorktree(".", "feature/abc", true, "")
-fmt.Printf("Worktree: %s (branch: %s)\n", result.WorktreePath, result.WorktreeBranch)
-```
-
-**Notes for Phase 2B**:
-- Phase 2A implements worktree commands only
-- Database integration (clone/drop) will be added in Phase 2B
-- Orchestrator provides one-click workflows for common cases
-- Low-level commands remain available for granular control
-
-## Phase 2B: Database Commands
-
-Essential database operations for worktree integration.
-
-### Database Commands
-
-**`db.dump`**: Dump database to SQL file
-
-```go
-import (
-    "fmt"
-    "github.com/mkrowiarz/mcp-symfony-stack/internal/core/commands"
-)
-
-func main() {
-    result, err := commands.Dump(".", "app_db", nil)
-    if err != nil {
-        fmt.Printf("Error: %v\n", err)
-        return
-    }
-    fmt.Printf("Dumped %s (%d bytes) to %s\n", result.Database, result.Size, result.Path)
-}
-```
-
-**`db.create`**: Create empty database
-
-```go
-_, err := commands.CreateDB(".", "new_db")
-if err != nil {
-    fmt.Printf("Error: %v\n", err)
-    return
-}
-fmt.Println("Database created")
-```
-
-**`db.import`**: Import SQL file into database
-
-```go
-result, err := commands.ImportDB(".", "app_db", "var/dumps/app_db.sql")
-if err != nil {
-    fmt.Printf("Error: %v\n", err)
-    return
-}
-fmt.Printf("Imported %s into %s\n", result.Path, result.Database)
-```
-
-**`db.drop`**: Drop database (protected: can't drop default)
-
-```go
-_, err := commands.DropDB(".", "old_db")
-if err != nil {
-    fmt.Printf("Error: %v\n", err)
-    return
-}
-fmt.Println("Database dropped")
-```
-
-### Configuration
-
-Database operations require the `database` section in `.claude/project.json`:
+### Full Config with Database
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/mkrowiarz/mcp-symfony-stack/main/schema.json",
   "project": {
-    "name": "your-project",
+    "name": "my-project",
     "type": "symfony"
   },
   "docker": {
-    "compose_file": "docker-compose.yaml"
+    "compose_files": [
+      "compose.yaml",
+      "docker/dev/compose/compose.app.yaml",
+      "docker/dev/compose/compose.database.yaml"
+    ]
   },
   "database": {
     "service": "database",
-    "dsn": "mysql://root:${DATABASE_PASSWORD}@database:3306/app",
-    "allowed": ["app", "app_*"],
+    "dsn": "${DATABASE_URL}",
     "dumps_path": "var/dumps"
+  },
+  "worktrees": {
+    "base_path": "/path/to/worktrees",
+    "db_per_worktree": true
   }
 }
 ```
 
-**Configuration fields:**
-- `database.service`: Docker Compose service name for database
-- `database.dsn`: Database URL (supports `mysql://`, `postgresql://`, env var interpolation)
-- `database.allowed`: Glob patterns for allowed database names (e.g., `["app", "app_*"]`)
-- `database.dumps_path`: Directory for SQL dumps (default: `var/dumps`)
+### Configuration Fields
 
-**Safety guards:**
-- Only databases matching `allowed` patterns can be operated on
-- The default database (from DSN) cannot be dropped
-- Database config is required for all database operations
+| Field | Required | Description |
+|-------|----------|-------------|
+| `project.name` | Yes | Project name for display |
+| `project.type` | Yes | Project type: `symfony`, `laravel`, `generic` |
+| `docker.compose_files` | Yes | Array of compose file paths (relative to project root) |
+| `database.service` | If database section exists | Docker Compose service name |
+| `database.dsn` | If database section exists | Database URL (supports `${VAR}` interpolation) |
+| `database.allowed` | No | Glob patterns for allowed databases (omit = allow all) |
+| `database.dumps_path` | No | Directory for SQL dumps (default: `var/dumps`) |
+| `worktrees.base_path` | If worktrees section exists | Directory for worktrees |
+| `worktrees.db_per_worktree` | No | Auto-create database per worktree |
 
-**Supported engines:**
-- MySQL (default port: 3306)
+### Environment Variables
+
+Config values support `${VAR_NAME}` syntax, resolved from:
+1. OS environment
+2. `.env.local`
+3. `.env`
+
+## MCP Server Setup
+
+Add to Claude Code config (`~/.claude/settings.json` or project `.claude/settings.local.json`):
+
+```json
+{
+  "mcpServers": {
+    "pm": {
+      "command": "/path/to/pm",
+      "args": ["--mcp"]
+    }
+  }
+}
+```
+
+### Available MCP Tools
+
+- `project_info` - Get project configuration and status
+- `project_init` - Generate suggested configuration
+- `worktree_list` - List git worktrees
+- `worktree_create` - Create a worktree
+- `worktree_remove` - Remove a worktree
+- `db_list` - List databases
+- `db_dump` - Dump database to SQL file
+- `db_import` - Import SQL file into database
+- `db_create` - Create empty database
+- `db_drop` - Drop database
+- `db_clone` - Clone database
+- `db_dumps_list` - List available dump files
+- `workflow_create_isolated_worktree` - Create worktree with optional database
+- `workflow_remove_isolated_worktree` - Remove worktree with optional database cleanup
+
+## TUI Keyboard Shortcuts
+
+Press `?` in TUI to see all shortcuts.
+
+| Key | Action |
+|-----|--------|
+| `Tab`/`Shift+Tab` | Cycle panes |
+| `1-4` | Jump to pane |
+| `j`/`k` or arrows | Navigate items |
+| `n` | New worktree (pane 2) |
+| `o` | Open worktree in terminal (pane 2) |
+| `x` | Remove worktree / Drop database / Delete dump |
+| `d` | Dump database (pane 3) |
+| `c` | Clone database (pane 3) |
+| `i` | Import dump (pane 4) |
+| `r` | Refresh current pane |
+| `R` | Refresh all panes |
+| `q` | Quit |
+
+## Safety Guards
+
+- Default database (from DSN) cannot be dropped
+- If `allowed` is set, only matching databases can be operated on
+- Path traversal attempts are blocked for worktrees
+
+## Supported Databases
+
+- MySQL (port 3306)
 - MariaDB (detected via `serverVersion` query param)
-- PostgreSQL (planned, default port: 5432)
-
-### Notes
-
-- Phase 2B implements essential database operations only
-- `db.list`, `db.clone`, `db.dumps` will be added in future phases
-- MySQL/MariaDB fully supported, PostgreSQL support planned
+- PostgreSQL (port 5432)
