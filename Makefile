@@ -32,6 +32,12 @@ install: build
 install-latest:
 	go install $(PACKAGE)@latest
 
+install-local: build
+	@mkdir -p ~/.local/bin
+	@cp $(BINARY) ~/.local/bin/
+	@echo "Installed to ~/.local/bin/$(BINARY)"
+	@echo "Make sure ~/.local/bin is in your PATH"
+
 install-private:
 	GOPRIVATE=github.com/mkrowiarz/* go install $(PACKAGE)@latest
 
@@ -61,6 +67,7 @@ help:
 	@echo "  clean         - Remove build artifacts"
 	@echo "  install       - Install binary to ~/go/bin (from local source)"
 	@echo "  install-latest- Install latest from remote to ~/go/bin"
+	@echo "  install-local - Install binary to ~/.local/bin (from local source)"
 	@echo "  install-private- Install from private repo (requires git SSH config)"
 	@echo "  fmt           - Format code"
 	@echo "  lint          - Run linter"

@@ -4,73 +4,25 @@ A standalone tool for managing Docker Compose-based development projects. Provid
 
 ## Installation
 
-### Option 1: Go Install (Recommended)
+### Quick Install
 
 ```bash
 go install github.com/mkrowiarz/mcp-symfony-stack/cmd/pm@latest
 ```
 
-This downloads the source and compiles the binary to `$HOME/go/bin/pm`.
+Binary is installed to `$HOME/go/bin/pm`. Add to PATH if needed:
 
-**Verify installation:**
+**Bash**: `export PATH="$HOME/go/bin:$PATH"`
 
-```bash
-ls -la ~/go/bin/pm
-```
+**Fish**: `set -gx PATH $HOME/go/bin $PATH`
 
-**Add to PATH** (required if `pm` command not found):
-
-**Bash** (~/.bashrc):
-```bash
-echo 'export PATH="$HOME/go/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-**Fish** (~/.config/fish/config.fish):
-```fish
-echo 'set -gx PATH $HOME/go/bin $PATH' >> ~/.config/fish/config.fish
-source ~/.config/fish/config.fish
-```
-
-**Verify:**
-
-```bash
-pm
-```
-
-### Option 2: Build from Source
+### Build from Source
 
 ```bash
 git clone https://github.com/mkrowiarz/mcp-symfony-stack.git
 cd mcp-symfony-stack
 go build -o pm ./cmd/pm
-
-# Install to PATH
-mkdir -p ~/.local/bin
-cp pm ~/.local/bin/
-```
-
-Add `~/.local/bin` to PATH:
-
-**Bash** (~/.bashrc):
-```bash
-export PATH="$HOME/.local/bin:$PATH"
-```
-
-**Fish** (~/.config/fish/config.fish):
-```fish
-set -gx PATH $HOME/.local/bin $PATH
-```
-
-Then reload your shell.
-
-### Private Repository
-
-If the repository is private, configure git to use SSH:
-
-```bash
-git config --global url."git@github.com:".insteadOf "https://github.com/"
-GOPRIVATE=github.com/mkrowiarz/* go install github.com/mkrowiarz/mcp-symfony-stack/cmd/pm@latest
+mv pm ~/.local/bin/  # or anywhere in your PATH
 ```
 
 ## Quick Start
