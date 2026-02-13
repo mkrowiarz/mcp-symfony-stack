@@ -54,9 +54,12 @@ source ~/.config/fish/config.fish
 ## Quick Start
 
 ```bash
-# Initialize config for your project
+# Initialize config for your project (preview)
 cd /path/to/your/project
-pm init > .haive/config.json
+pm init
+
+# Write config directly to .haive/config.json
+pm init --write
 
 # Run interactive TUI
 pm
