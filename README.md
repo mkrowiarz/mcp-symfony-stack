@@ -292,6 +292,30 @@ pm switch --clone-from=symfony
 - If database doesn't exist: automatically creates it
 - If feature branch: automatically clones from default database
 
+### `pm worktree` - Manage git worktrees
+
+List, create, and remove git worktrees from the command line.
+
+```bash
+# List all worktrees
+pm worktree list
+pm wt ls
+
+# Create worktree for existing branch
+pm worktree create feature/my-feature
+pm wt create feature/my-feature
+
+# Create worktree with new branch
+pm worktree create feature/new-feature --new-branch
+pm wt add feature/new-feature -n
+
+# Remove worktree
+pm worktree remove feature/my-feature
+pm wt rm feature/my-feature
+```
+
+**Note:** Worktree commands require the `worktrees` section in your config.
+
 ## Troubleshooting
 
 ### "Dump failed" or "Import failed" errors
