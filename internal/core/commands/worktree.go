@@ -121,7 +121,7 @@ func promptForWorktreesPath(projectRoot string) (string, error) {
 	fmt.Println("Worktrees allow you to work on multiple branches simultaneously")
 	fmt.Println("by checking them out into separate directories.")
 	fmt.Println()
-	fmt.Printf("Where would you like to store worktrees? (default: ../worktrees): ")
+	fmt.Printf("Where would you like to store worktrees? (default: .worktrees): ")
 	
 	input, err := reader.ReadString('\n')
 	if err != nil {
@@ -130,7 +130,7 @@ func promptForWorktreesPath(projectRoot string) (string, error) {
 	
 	input = strings.TrimSpace(input)
 	if input == "" {
-		input = "../worktrees"
+		input = ".worktrees"
 	}
 	
 	// Make it relative to project root if not absolute
