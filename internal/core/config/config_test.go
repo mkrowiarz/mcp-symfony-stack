@@ -15,6 +15,7 @@ func TestLoad(t *testing.T) {
 		setupFunc     func() (string, error)
 		cleanupFunc   func()
 		expectedError types.ErrCode
+		checkFunc     func(*testing.T, *Config)
 	}{
 		{
 			name:        "valid config loads successfully",
@@ -50,6 +51,91 @@ func TestLoad(t *testing.T) {
 			},
 			cleanupFunc:   func() {},
 			expectedError: types.ErrConfigInvalid,
+		},
+		{
+			name: "pm namespace in shared .haive.json",
+			setupFunc: func() (string, error) {
+				tmpDir := t.TempDir()
+				configPath := filepath.Join(tmpDir, ".haive.json")
+				sharedConfig := `{
+					"project": "other-tool",
+					"agents": ["claude"],
+					"pm": {
+						"project": {
+							"name": "shared-project",
+							"type": "symfony"
+						},
+						"docker": {
+							"compose_files": ["docker-compose.yml"]
+						},
+						"database": {
+							"service": "db",
+							"dsn": "mysql://root:pass@db/app",
+							"allowed": ["app", "app_*"]
+						}
+					}
+				}`
+				return tmpDir, os.WriteFile(configPath, []byte(sharedConfig), 0644)
+			},
+			cleanupFunc:   func() {},
+			expectedError: "",
+			checkFunc: func(t *testing.T, cfg *Config) {
+				if cfg.Project == nil {
+					t.Error("expected Project section, got nil")
+					return
+				}
+				if cfg.Project.Name != "shared-project" {
+					t.Errorf("expected project name 'shared-project', got '%s'", cfg.Project.Name)
+				}
+				if cfg.Project.Type != "symfony" {
+					t.Errorf("expected project type 'symfony', got '%s'", cfg.Project.Type)
+				}
+				if cfg.Database == nil {
+					t.Error("expected Database section, got nil")
+					return
+				}
+				if cfg.Database.Service != "db" {
+					t.Errorf("expected database service 'db', got '%s'", cfg.Database.Service)
+				}
+			},
+		},
+		{
+			name: "pm namespace in .haive/config.json",
+			setupFunc: func() (string, error) {
+				tmpDir := t.TempDir()
+				haiveDir := filepath.Join(tmpDir, ".haive")
+				if err := os.MkdirAll(haiveDir, 0755); err != nil {
+					return "", err
+				}
+				configPath := filepath.Join(haiveDir, "config.json")
+				sharedConfig := `{
+					"project": "other-tool",
+					"pm": {
+						"project": {
+							"name": "haive-dir-project",
+							"type": "laravel"
+						},
+						"docker": {
+							"compose_files": ["compose.yml"]
+						}
+					}
+				}`
+				return tmpDir, os.WriteFile(configPath, []byte(sharedConfig), 0644)
+			},
+			cleanupFunc:   func() {},
+			expectedError: "",
+			checkFunc: func(t *testing.T, cfg *Config) {
+				if cfg.Project == nil {
+					t.Error("expected Project section, got nil")
+					return
+				}
+				if cfg.Project.Name != "haive-dir-project" {
+					t.Errorf("expected project name 'haive-dir-project', got '%s'", cfg.Project.Name)
+				}
+				if cfg.Project.Type != "laravel" {
+					t.Errorf("expected project type 'laravel', got '%s'", cfg.Project.Type)
+				}
+			},
 		},
 	}
 
@@ -93,6 +179,11 @@ func TestLoad(t *testing.T) {
 
 			if cfg == nil {
 				t.Error("expected config, got nil")
+				return
+			}
+
+			if tt.checkFunc != nil {
+				tt.checkFunc(t, cfg)
 				return
 			}
 

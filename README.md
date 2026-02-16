@@ -4,10 +4,12 @@ A standalone tool for managing Docker Compose-based development projects. Provid
 
 ## Installation
 
-### Quick Install
+### Option 1: Install from Source (Recommended for Development)
 
 ```bash
-go install github.com/mkrowiarz/mcp-symfony-stack/cmd/pm@latest
+git clone https://github.com/mkrowiarz/mcp-symfony-stack.git
+cd mcp-symfony-stack
+make install
 ```
 
 Binary is installed to `$HOME/go/bin/pm`. Add to PATH if needed:
@@ -16,13 +18,35 @@ Binary is installed to `$HOME/go/bin/pm`. Add to PATH if needed:
 
 **Fish**: `set -gx PATH $HOME/go/bin $PATH`
 
-### Build from Source
+### Option 2: Install to ~/.local/bin
+
+```bash
+git clone https://github.com/mkrowiarz/mcp-symfony-stack.git
+cd mcp-symfony-stack
+make install-local
+```
+
+Binary is installed to `~/.local/bin/pm`. Make sure `~/.local/bin` is in your PATH.
+
+### Option 3: Install Latest Release
+
+```bash
+go install github.com/mkrowiarz/mcp-symfony-stack/cmd/pm@latest
+```
+
+Binary is installed to `$HOME/go/bin/pm`.
+
+### Option 4: Manual Build
 
 ```bash
 git clone https://github.com/mkrowiarz/mcp-symfony-stack.git
 cd mcp-symfony-stack
 go build -o pm ./cmd/pm
-mv pm ~/.local/bin/  # or anywhere in your PATH
+
+# Move to system PATH
+sudo mv pm /usr/local/bin/
+# Or to user-local bin
+mkdir -p ~/.local/bin && mv pm ~/.local/bin/
 ```
 
 ## Quick Start
@@ -35,6 +59,12 @@ pm init
 # Write config directly to .haive/config.json
 pm init --write
 
+# Output with "pm" namespace (for adding to existing .haive.json)
+pm init --namespace
+
+# Write namespaced config directly to .haive/config.json
+pm init --namespace --write
+
 # Run interactive TUI
 pm
 
@@ -45,8 +75,9 @@ pm --mcp
 ## Configuration
 
 Config file locations (checked in order):
-1. `.haive/config.json`
-2. `.haive.json`
+1. `.claude/project.json` (recommended)
+2. `.haive/config.json`
+3. `.haive.json`
 
 ### Minimal Config
 
@@ -82,11 +113,39 @@ Config file locations (checked in order):
   "database": {
     "service": "database",
     "dsn": "${DATABASE_URL}",
+    "allowed": ["myapp", "myapp_*"],
     "dumps_path": "var/dumps"
   },
   "worktrees": {
     "base_path": "/path/to/worktrees",
     "db_per_worktree": true
+  }
+}
+```
+
+**Note:** `database.allowed` is required when the database section is present. Use glob patterns like `["app", "app_*"]` to specify which databases can be operated on.
+
+### Shared Config with Other Tools
+
+If you use `.haive.json` for multiple tools, you can namespace the `pm` config:
+
+```json
+{
+  "project": "other-tool-config",
+  "agents": ["claude"],
+  "pm": {
+    "project": {
+      "name": "my-project",
+      "type": "symfony"
+    },
+    "docker": {
+      "compose_files": ["docker-compose.yaml"]
+    },
+    "database": {
+      "service": "db",
+      "dsn": "${DATABASE_URL}",
+      "allowed": ["myapp", "myapp_*"]
+    }
   }
 }
 ```
@@ -100,7 +159,7 @@ Config file locations (checked in order):
 | `docker.compose_files` | Yes | Array of compose file paths (relative to project root) |
 | `database.service` | If database section exists | Docker Compose service name |
 | `database.dsn` | If database section exists | Database URL (supports `${VAR}` interpolation) |
-| `database.allowed` | No | Glob patterns for allowed databases (omit = allow all) |
+| `database.allowed` | If database section exists | Glob patterns for allowed databases (e.g., `["app", "app_*"]`) |
 | `database.dumps_path` | No | Directory for SQL dumps (default: `var/dumps`) |
 | `worktrees.base_path` | If worktrees section exists | Directory for worktrees |
 | `worktrees.db_per_worktree` | No | Auto-create database per worktree |
@@ -187,8 +246,33 @@ Press `?` in TUI to see all shortcuts.
 ## Safety Guards
 
 - Default database (from DSN) cannot be dropped
-- If `allowed` is set, only matching databases can be operated on
+- `database.allowed` restricts which databases can be operated on (required when database section is present)
 - Path traversal attempts are blocked for worktrees
+
+## Troubleshooting
+
+### "Dump failed" or "Import failed" errors
+
+If you see errors mentioning `mysqldump: [Warning] Using a password...`, this is a MySQL warning that was being captured into the SQL output. This has been fixed - update to the latest version.
+
+### Config not found
+
+The tool searches for config in this order:
+1. `.claude/project.json` (recommended)
+2. `.haive/config.json`
+3. `.haive.json`
+
+If you have an existing `.haive.json` with other tool configs, add the `pm` namespace (see "Shared Config with Other Tools" above).
+
+### Database operations fail with "not in allowed list"
+
+The `database.allowed` field is required when the database section is present. It specifies which databases can be operated on for safety:
+
+```json
+"database": {
+  "allowed": ["myapp", "myapp_*"]
+}
+```
 
 ## Supported Databases
 

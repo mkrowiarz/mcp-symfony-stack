@@ -835,9 +835,21 @@ func (m Model) renderModalOverlay(baseView string) string {
 }
 
 func (m Model) renderErrorOverlay(baseView string) string {
-	errorContent := fmt.Sprintf("✗ Error\n\n%s\n\nPress any key to dismiss", m.errorMessage)
+	// Wrap long error messages
+	maxWidth := m.width - 10
+	if maxWidth > 80 {
+		maxWidth = 80
+	}
+	if maxWidth < 40 {
+		maxWidth = 40
+	}
+
+	wrappedMsg := wrapText(m.errorMessage, maxWidth-6)
+	errorContent := fmt.Sprintf("✗ Error\n\n%s\n\nPress any key to dismiss", wrappedMsg)
+
 	errorBox := modalStyle.
 		BorderForeground(errorColor).
+		Width(maxWidth).
 		Render(errorContent)
 
 	overlay := lipgloss.Place(
@@ -852,6 +864,43 @@ func (m Model) renderErrorOverlay(baseView string) string {
 		Width(m.width).
 		Height(m.height).
 		Render(overlay)
+}
+
+func wrapText(text string, width int) string {
+	if width <= 0 {
+		return text
+	}
+
+	var result []string
+	lines := strings.Split(text, "\n")
+
+	for _, line := range lines {
+		if len(line) <= width {
+			result = append(result, line)
+			continue
+		}
+
+		var currentLine string
+		words := strings.Fields(line)
+		for _, word := range words {
+			if len(currentLine)+len(word)+1 > width {
+				if currentLine != "" {
+					result = append(result, currentLine)
+				}
+				currentLine = word
+			} else {
+				if currentLine != "" {
+					currentLine += " "
+				}
+				currentLine += word
+			}
+		}
+		if currentLine != "" {
+			result = append(result, currentLine)
+		}
+	}
+
+	return strings.Join(result, "\n")
 }
 
 func (m Model) renderHelpOverlay(baseView string) string {

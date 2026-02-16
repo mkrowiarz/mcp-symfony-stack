@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -26,9 +27,13 @@ func main() {
 	args := flag.Args()
 	if len(args) > 0 && args[0] == "init" {
 		writeFlag := false
+		namespaceFlag := false
 		for _, arg := range args[1:] {
 			if arg == "--write" || arg == "-w" {
 				writeFlag = true
+			}
+			if arg == "--namespace" || arg == "-n" {
+				namespaceFlag = true
 			}
 		}
 
@@ -36,6 +41,11 @@ func main() {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
+		}
+
+		config := result.SuggestedConfig
+		if namespaceFlag {
+			config = wrapInNamespace(config)
 		}
 
 		if writeFlag {
@@ -53,14 +63,14 @@ func main() {
 				os.Exit(1)
 			}
 
-			if err := os.WriteFile(configPath, []byte(result.SuggestedConfig), 0644); err != nil {
+			if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
 				fmt.Fprintf(os.Stderr, "Error writing config: %v\n", err)
 				os.Exit(1)
 			}
 
 			fmt.Printf("Created: %s\n", configPath)
 		} else {
-			fmt.Println(result.SuggestedConfig)
+			fmt.Println(config)
 		}
 		return
 	}
@@ -69,4 +79,22 @@ func main() {
 		fmt.Fprintf(os.Stderr, "TUI error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func wrapInNamespace(config string) string {
+	var cfg map[string]interface{}
+	if err := json.Unmarshal([]byte(config), &cfg); err != nil {
+		return config
+	}
+
+	wrapper := map[string]interface{}{
+		"pm": cfg,
+	}
+
+	data, err := json.MarshalIndent(wrapper, "", "  ")
+	if err != nil {
+		return config
+	}
+
+	return string(data)
 }

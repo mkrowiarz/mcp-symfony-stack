@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/mkrowiarz/mcp-symfony-stack/internal/core/dsn"
 	"github.com/mkrowiarz/mcp-symfony-stack/internal/core/types"
@@ -44,43 +45,69 @@ type Worktrees struct {
 
 func Load(projectRoot string) (*Config, error) {
 	configPaths := []string{
+		filepath.Join(projectRoot, ".claude", "project.json"),
 		filepath.Join(projectRoot, ".haive", "config.json"),
 		filepath.Join(projectRoot, ".haive.json"),
 	}
 
 	var lastErr error
+	var foundFiles []string
+
 	for _, configPath := range configPaths {
 		data, err := os.ReadFile(configPath)
 		if err != nil {
 			if os.IsNotExist(err) {
-				lastErr = &types.CommandError{
-					Code:    types.ErrConfigMissing,
-					Message: fmt.Sprintf("config file not found (tried .haive/config.json and .haive.json)"),
-				}
 				continue
 			}
 			return nil, &types.CommandError{
 				Code:    types.ErrConfigInvalid,
-				Message: fmt.Sprintf("failed to read config file: %v", err),
+				Message: fmt.Sprintf("failed to read config file %s: %v", configPath, err),
 			}
 		}
 
+		foundFiles = append(foundFiles, configPath)
+
+		// First, try to parse with namespace (allows sharing .haive.json with other tools)
+		var wrapper struct {
+			PM *Config `json:"pm"`
+		}
 		var cfg Config
-		if err := json.Unmarshal(data, &cfg); err != nil {
-			return nil, &types.CommandError{
-				Code:    types.ErrConfigInvalid,
-				Message: fmt.Sprintf("invalid JSON in config file: %v", err),
-			}
+
+		if err := json.Unmarshal(data, &wrapper); err == nil && wrapper.PM != nil && hasPMContent(wrapper.PM) {
+			return validateConfig(wrapper.PM, projectRoot)
 		}
 
-		if cfg.Project == nil && cfg.Database == nil && cfg.Docker == nil && cfg.Worktrees == nil {
+		// Fall back to direct config format (for .claude/project.json and legacy configs)
+		if err := json.Unmarshal(data, &cfg); err != nil {
+			// Config file exists but has wrong format - could be for a different tool
+			// Continue to try other config files instead of failing immediately
+			lastErr = &types.CommandError{
+				Code:    types.ErrConfigInvalid,
+				Message: fmt.Sprintf("invalid JSON in config file %s: %v", configPath, err),
+			}
+			continue
+		}
+
+		if !hasPMContent(&cfg) {
 			continue
 		}
 
 		return validateConfig(&cfg, projectRoot)
 	}
 
-	return nil, lastErr
+	if len(foundFiles) > 0 && lastErr != nil {
+		// Found config file(s) but none were valid
+		return nil, lastErr
+	}
+
+	return nil, &types.CommandError{
+		Code:    types.ErrConfigMissing,
+		Message: fmt.Sprintf("config file not found (tried %s)", strings.Join(configPaths, ", ")),
+	}
+}
+
+func hasPMContent(cfg *Config) bool {
+	return cfg.Project != nil || cfg.Database != nil || cfg.Docker != nil || cfg.Worktrees != nil
 }
 
 func validateConfig(cfg *Config, projectRoot string) (*Config, error) {
@@ -105,6 +132,12 @@ func validateConfig(cfg *Config, projectRoot string) (*Config, error) {
 			return nil, &types.CommandError{
 				Code:    types.ErrConfigInvalid,
 				Message: "database.dsn is required when database section is present",
+			}
+		}
+		if len(cfg.Database.Allowed) == 0 {
+			return nil, &types.CommandError{
+				Code:    types.ErrConfigInvalid,
+				Message: "database.allowed is required when database section is present (e.g., [\"myapp\", \"myapp_*\"])",
 			}
 		}
 		cfg.Database.DSN = ResolveEnvVars(cfg.Database.DSN, projectRoot)

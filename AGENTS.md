@@ -5,8 +5,14 @@ This file contains guidelines for agents working on this repository.
 ## Build / Lint / Test Commands
 
 ```bash
-# Build the main binary
+# Build the main binary (local development)
 go build -o pm ./cmd/pm
+
+# Install to ~/go/bin using 'go install' (recommended for use)
+make install
+
+# Install to ~/.local/bin
+make install-local
 
 # Build for multiple platforms
 go build -o pm-linux ./cmd/pm

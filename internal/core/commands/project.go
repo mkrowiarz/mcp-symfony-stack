@@ -299,6 +299,7 @@ func generateSuggestedConfig(projectName, projectType string, composeFiles []str
 		cfg["database"] = map[string]interface{}{
 			"service":    dbService,
 			"dsn":        "${DATABASE_URL}",
+			"allowed":    []string{dbName, dbName + "_*"},
 			"dumps_path": "var/dumps",
 		}
 	}

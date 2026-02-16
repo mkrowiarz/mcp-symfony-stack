@@ -52,9 +52,14 @@ func (d *DockerDatabaseExecutor) Dump(service string, dsn *types.DSN, destPath s
 
 	execCmd := exec.Command("docker", args...)
 	execCmd.Dir = d.projectRoot
+	// Only capture stdout - mysqldump warnings go to stderr and would corrupt the SQL
 	output, err := execCmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("dump failed: %w", err)
+		stderr := ""
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			stderr = string(exitErr.Stderr)
+		}
+		return nil, fmt.Errorf("dump failed: %w\nStderr: %s", err, stderr)
 	}
 
 	if err := os.WriteFile(destPath, output, 0644); err != nil {
@@ -77,8 +82,9 @@ func (d *DockerDatabaseExecutor) Create(service string, dsn *types.DSN, dbName s
 
 	execCmd := exec.Command("docker", args...)
 	execCmd.Dir = d.projectRoot
-	if err := execCmd.Run(); err != nil {
-		return nil, fmt.Errorf("create database failed: %w", err)
+	output, err := execCmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("create database failed: %w\nOutput: %s", err, string(output))
 	}
 
 	return &types.CreateResult{Database: dbName}, nil
@@ -98,9 +104,9 @@ func (d *DockerDatabaseExecutor) Import(service string, dsn *types.DSN, sourcePa
 	execCmd := exec.Command("docker", args...)
 	execCmd.Dir = d.projectRoot
 	execCmd.Stdin = bytes.NewReader(sqlData)
-
-	if err := execCmd.Run(); err != nil {
-		return nil, fmt.Errorf("import failed: %w", err)
+	output, err := execCmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("import failed: %w\nOutput: %s", err, string(output))
 	}
 
 	return &types.ImportResult{
@@ -116,8 +122,9 @@ func (d *DockerDatabaseExecutor) Drop(service string, dsn *types.DSN, dbName str
 
 	execCmd := exec.Command("docker", args...)
 	execCmd.Dir = d.projectRoot
-	if err := execCmd.Run(); err != nil {
-		return nil, fmt.Errorf("drop database failed: %w", err)
+	output, err := execCmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("drop database failed: %w\nOutput: %s", err, string(output))
 	}
 
 	return &types.DropResult{Database: dbName}, nil
@@ -129,9 +136,14 @@ func (d *DockerDatabaseExecutor) List(service string, dsn *types.DSN, defaultDB 
 
 	execCmd := exec.Command("docker", args...)
 	execCmd.Dir = d.projectRoot
-	output, err := execCmd.CombinedOutput()
+	// Only capture stdout - mysql warnings go to stderr
+	output, err := execCmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("list databases failed: %w\nOutput: %s", err, string(output))
+		stderr := ""
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			stderr = string(exitErr.Stderr)
+		}
+		return nil, fmt.Errorf("list databases failed: %w\nStderr: %s", err, stderr)
 	}
 
 	return parseDatabaseList(string(output), defaultDB)
