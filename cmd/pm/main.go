@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -257,6 +258,13 @@ func handleSwitch(args []string) {
 	}
 }
 
+func gitBranchExists(branch string) bool {
+	cmd := exec.Command("git", "rev-parse", "--verify", branch)
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	return cmd.Run() == nil
+}
+
 func handleWorktree(args []string) {
 	if len(args) == 0 {
 		fmt.Fprintf(os.Stderr, "Usage: pm worktree <list|create|remove> [options]\n")
@@ -295,6 +303,14 @@ func handleWorktree(args []string) {
 		newBranch := false
 		for _, arg := range args[2:] {
 			if arg == "--new-branch" || arg == "-n" {
+				newBranch = true
+			}
+		}
+
+		// Auto-detect if branch exists
+		if !newBranch {
+			if !gitBranchExists(branch) {
+				fmt.Printf("Branch '%s' doesn't exist. Creating new branch...\n", branch)
 				newBranch = true
 			}
 		}
