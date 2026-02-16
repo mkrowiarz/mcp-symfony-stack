@@ -44,7 +44,15 @@ type Worktrees struct {
 
 func Load(projectRoot string) (*Config, error) {
 	// Search current directory and parent directories (for worktrees)
-	searchDir := projectRoot
+	// Get absolute path to handle relative paths like "."
+	searchDir, err := filepath.Abs(projectRoot)
+	if err != nil {
+		return nil, &types.CommandError{
+			Code:    types.ErrConfigInvalid,
+			Message: fmt.Sprintf("failed to resolve path: %v", err),
+		}
+	}
+	
 	for {
 		configPaths := []string{
 			filepath.Join(searchDir, ".claude", "project.json"),
