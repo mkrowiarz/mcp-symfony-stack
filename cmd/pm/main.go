@@ -50,6 +50,9 @@ func main() {
 		case "switch":
 			handleSwitch(args[1:])
 			return
+		case "worktree", "wt":
+			handleWorktree(args[1:])
+			return
 		case "help", "--help", "-h":
 			printHelp()
 			return
@@ -87,6 +90,7 @@ func printHelp() {
 	fmt.Println("  " + yellow + "init" + reset + "                  Generate config for current project")
 	fmt.Println("  " + yellow + "checkout <branch>" + reset + "     Switch git branch and database")
 	fmt.Println("  " + yellow + "switch" + reset + "                Switch database for current branch")
+	fmt.Println("  " + yellow + "worktree <cmd>" + reset + "        Manage git worktrees")
 	fmt.Println("  " + yellow + "help" + reset + "                  Show this help message")
 	fmt.Println()
 	fmt.Println(bold + "Init Flags:" + reset)
@@ -100,12 +104,23 @@ func printHelp() {
 	fmt.Println(bold + "Switch Flags:" + reset)
 	fmt.Println("  " + magenta + "--clone-from=<db>" + reset + "     Clone data from specified database")
 	fmt.Println()
+	fmt.Println(bold + "Worktree Commands:" + reset)
+	fmt.Println("  " + yellow + "list" + reset + "                  List all worktrees")
+	fmt.Println("  " + yellow + "create <branch>" + reset + "       Create new worktree")
+	fmt.Println("  " + yellow + "remove <branch>" + reset + "       Remove worktree")
+	fmt.Println()
+	fmt.Println(bold + "Worktree Flags:" + reset)
+	fmt.Println("  " + magenta + "--new-branch, -n" + reset + "      Create new branch (with create)")
+	fmt.Println()
 	fmt.Println(bold + "Examples:" + reset)
 	fmt.Println("  " + green + "pm init --write" + reset + "                    # Create config file")
 	fmt.Println("  " + green + "pm init --namespace --write" + reset + "        # Create namespaced config")
 	fmt.Println("  " + green + "pm checkout feature/x --create" + reset + "     # Create branch with new db")
 	fmt.Println("  " + green + "pm checkout main" + reset + "                   # Switch to main branch+db")
 	fmt.Println("  " + green + "pm switch" + reset + "                          # Switch db for current branch")
+	fmt.Println("  " + green + "pm worktree list" + reset + "                   # List worktrees")
+	fmt.Println("  " + green + "pm worktree create feature/x" + reset + "       # Create worktree")
+	fmt.Println("  " + green + "pm worktree remove feature/x" + reset + "       # Remove worktree")
 	fmt.Println()
 	fmt.Println(green + "Config file locations" + reset + " (checked in order):")
 	fmt.Println("  1. " + bold + ".claude/project.json" + reset + " (recommended)")
@@ -239,5 +254,79 @@ func handleSwitch(args []string) {
 	}
 	if result.Cloned {
 		fmt.Printf("✓ Cloned data from source database\n")
+	}
+}
+
+func handleWorktree(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintf(os.Stderr, "Usage: pm worktree <list|create|remove> [options]\n")
+		os.Exit(1)
+	}
+
+	switch args[0] {
+	case "list", "ls":
+		worktrees, err := commands.List(".")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+
+		if len(worktrees) == 0 {
+			fmt.Println("No worktrees found")
+			return
+		}
+
+		fmt.Println("Worktrees:")
+		for _, wt := range worktrees {
+			prefix := "  "
+			if wt.IsMain {
+				prefix = "* "
+			}
+			fmt.Printf("%s%s  (%s)\n", prefix, wt.Branch, wt.Path)
+		}
+
+	case "create", "add":
+		if len(args) < 2 {
+			fmt.Fprintf(os.Stderr, "Usage: pm worktree create <branch> [--new-branch]\n")
+			os.Exit(1)
+		}
+
+		branch := args[1]
+		newBranch := false
+		for _, arg := range args[2:] {
+			if arg == "--new-branch" || arg == "-n" {
+				newBranch = true
+			}
+		}
+
+		result, err := commands.Create(".", branch, newBranch)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("✓ Created worktree: %s\n", result.Branch)
+		fmt.Printf("✓ Path: %s\n", result.Path)
+
+	case "remove", "rm", "delete":
+		if len(args) < 2 {
+			fmt.Fprintf(os.Stderr, "Usage: pm worktree remove <branch>\n")
+			os.Exit(1)
+		}
+
+		branch := args[1]
+		result, err := commands.Remove(".", branch)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("✓ Removed worktree: %s\n", branch)
+		fmt.Printf("✓ Path: %s\n", result.Path)
+
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown worktree command: %s\n", args[0])
+		fmt.Fprintf(os.Stderr, "Usage: pm worktree <list|create|remove> [options]\n")
+		os.Exit(1)
 	}
 }
