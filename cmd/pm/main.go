@@ -63,45 +63,57 @@ func main() {
 }
 
 func printHelp() {
-	help := `pm - Project Manager for Docker Compose-based development
+	// ANSI color codes
+	var (
+		reset   = "\033[0m"
+		bold    = "\033[1m"
+		dim     = "\033[2m"
+		cyan    = "\033[36m"
+		green   = "\033[32m"
+		yellow  = "\033[33m"
+		magenta = "\033[35m"
+		gray    = "\033[90m"
+	)
 
-Usage:
-  pm                    Run interactive TUI (default)
-  pm --mcp              Run as MCP server for Claude Code
-  pm <command> [flags]  Run specific command
-
-Commands:
-  init                  Generate config for current project
-  checkout <branch>     Switch git branch and database
-  switch                Switch database for current branch
-  help                  Show this help message
-
-Init Flags:
-  --write, -w           Write config to .haive/config.json
-  --namespace, -n       Wrap config in "pm" namespace
-
-Checkout Flags:
-  --create, -c          Create new branch
-  --clone-from=<db>     Clone data from specified database
-
-Switch Flags:
-  --clone-from=<db>     Clone data from specified database
-
-Examples:
-  pm init --write                    # Create config file
-  pm init --namespace --write        # Create namespaced config
-  pm checkout feature/x --create     # Create branch with new db
-  pm checkout main                   # Switch to main branch+db
-  pm switch                          # Switch db for current branch
-
-Config file locations (checked in order):
-  1. .claude/project.json (recommended)
-  2. .haive/config.json
-  3. .haive.json
-
-For more information: https://github.com/mkrowiarz/mcp-symfony-stack
-`
-	fmt.Println(help)
+	fmt.Println()
+	fmt.Println(cyan + "pm" + reset + " - Project Manager for Docker Compose-based development")
+	fmt.Println()
+	fmt.Println(bold + "Usage:" + reset)
+	fmt.Println("  " + green + "pm" + reset + "                    Run interactive TUI (default)")
+	fmt.Println("  " + green + "pm --mcp" + reset + "              Run as MCP server for Claude Code")
+	fmt.Println("  " + green + "pm <command> [flags]" + reset + "  Run specific command")
+	fmt.Println()
+	fmt.Println(bold + "Commands:" + reset)
+	fmt.Println("  " + yellow + "init" + reset + "                  Generate config for current project")
+	fmt.Println("  " + yellow + "checkout <branch>" + reset + "     Switch git branch and database")
+	fmt.Println("  " + yellow + "switch" + reset + "                Switch database for current branch")
+	fmt.Println("  " + yellow + "help" + reset + "                  Show this help message")
+	fmt.Println()
+	fmt.Println(bold + "Init Flags:" + reset)
+	fmt.Println("  " + magenta + "--write, -w" + reset + "           Write config to .haive/config.json")
+	fmt.Println("  " + magenta + "--namespace, -n" + reset + "       Wrap config in \"pm\" namespace")
+	fmt.Println()
+	fmt.Println(bold + "Checkout Flags:" + reset)
+	fmt.Println("  " + magenta + "--create, -c" + reset + "          Create new branch")
+	fmt.Println("  " + magenta + "--clone-from=<db>" + reset + "     Clone data from specified database")
+	fmt.Println()
+	fmt.Println(bold + "Switch Flags:" + reset)
+	fmt.Println("  " + magenta + "--clone-from=<db>" + reset + "     Clone data from specified database")
+	fmt.Println()
+	fmt.Println(bold + "Examples:" + reset)
+	fmt.Println("  " + green + "pm init --write" + reset + "                    # Create config file")
+	fmt.Println("  " + green + "pm init --namespace --write" + reset + "        # Create namespaced config")
+	fmt.Println("  " + green + "pm checkout feature/x --create" + reset + "     # Create branch with new db")
+	fmt.Println("  " + green + "pm checkout main" + reset + "                   # Switch to main branch+db")
+	fmt.Println("  " + green + "pm switch" + reset + "                          # Switch db for current branch")
+	fmt.Println()
+	fmt.Println(green + "Config file locations" + reset + " (checked in order):")
+	fmt.Println("  1. " + bold + ".claude/project.json" + reset + " (recommended)")
+	fmt.Println("  2. " + gray + ".haive/config.json" + reset)
+	fmt.Println("  3. " + gray + ".haive.json" + reset)
+	fmt.Println()
+	fmt.Println(dim + "For more information:" + reset + " https://github.com/mkrowiarz/mcp-symfony-stack")
+	fmt.Println()
 }
 
 func wrapInNamespace(config string) string {
