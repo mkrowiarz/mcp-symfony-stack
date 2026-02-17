@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/mkrowiarz/mcp-symfony-stack/internal/core/commands"
@@ -79,7 +78,7 @@ func printHelp() {
 		green   = "\033[32m"
 		yellow  = "\033[33m"
 		magenta = "\033[35m"
-		gray    = "\033[90m"
+
 	)
 
 	fmt.Println()
@@ -98,7 +97,7 @@ func printHelp() {
 	fmt.Println("  " + yellow + "help" + reset + "                  Show this help message")
 	fmt.Println()
 	fmt.Println(bold + "Init Flags:" + reset)
-	fmt.Println("  " + magenta + "--write, -w" + reset + "           Write config to .haive/config.toml")
+	fmt.Println("  " + magenta + "--write, -w" + reset + "           Write config to .haive.toml")
 	fmt.Println()
 	fmt.Println(bold + "Checkout Flags:" + reset)
 	fmt.Println("  " + magenta + "--create, -c" + reset + "          Create new branch")
@@ -131,9 +130,7 @@ func printHelp() {
 	fmt.Println("  " + green + "haive serve" + reset + "                         # Start worktree app")
 	fmt.Println("  " + green + "haive serve stop" + reset + "                      # Stop worktree app")
 	fmt.Println()
-	fmt.Println(green + "Config file" + reset + " (searched in order):")
-	fmt.Println("  1. " + bold + "haive.toml" + reset)
-	fmt.Println("  2. " + gray + ".haive/config.toml" + reset)
+	fmt.Println(green + "Config file:" + reset + " .haive.toml")
 	fmt.Println()
 	fmt.Println(dim + "For more information:" + reset + " https://github.com/mkrowiarz/mcp-symfony-stack")
 	fmt.Println()
@@ -157,17 +154,11 @@ func handleInit(args []string) {
 	config := result.SuggestedConfig
 
 	if writeFlag {
-		configDir := ".haive"
-		configPath := filepath.Join(configDir, "config.toml")
+		configPath := ".haive.toml"
 
 		if _, err := os.Stat(configPath); err == nil {
 			fmt.Fprintf(os.Stderr, "Config file already exists: %s\n", configPath)
 			fmt.Fprintf(os.Stderr, "Remove it first or use 'haive init' to preview.\n")
-			os.Exit(1)
-		}
-
-		if err := os.MkdirAll(configDir, 0755); err != nil {
-			fmt.Fprintf(os.Stderr, "Error creating directory: %v\n", err)
 			os.Exit(1)
 		}
 

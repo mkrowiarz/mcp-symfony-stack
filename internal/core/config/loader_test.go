@@ -25,7 +25,7 @@ dsn = "mysql://user:pass@db:3306/test"
 allowed = ["test", "test_*"]
 `
 
-	configPath := filepath.Join(tmpDir, "haive.toml")
+	configPath := filepath.Join(tmpDir, ".haive.toml")
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -49,9 +49,8 @@ allowed = ["test", "test_*"]
 func TestLoader_Load_Priority(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create config in .haive/config.toml
-	os.MkdirAll(filepath.Join(tmpDir, ".haive"), 0755)
-	os.WriteFile(filepath.Join(tmpDir, ".haive", "config.toml"), []byte(`
+	// Create config in .haive.toml
+	os.WriteFile(filepath.Join(tmpDir, ".haive.toml"), []byte(`
 [project]
 name = "nested-config"
 `), 0644)

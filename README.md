@@ -56,7 +56,7 @@ mkdir -p ~/.local/bin && mv haive ~/.local/bin/
 cd /path/to/your/project
 haive init
 
-# Write config directly to .haive/config.toml
+# Write config directly to .haive.toml
 haive init --write
 
 # Switch to a branch with automatic database switching
@@ -74,12 +74,9 @@ haive --mcp
 
 ## Configuration
 
-Haive uses TOML configuration files. Searched in order:
+Haive uses a TOML configuration file named `.haive.toml` in your project root.
 
-1. `haive.toml`
-2. `.haive/config.toml`
-
-### Minimal Config
+### Minimal Config (`.haive.toml`)
 
 ```toml
 [project]
@@ -90,7 +87,7 @@ preset = "symfony"
 compose_files = ["docker-compose.yaml"]
 ```
 
-### Full Config with Database and Worktrees
+### Full Config Example (`.haive.toml`)
 
 ```toml
 [project]
@@ -459,9 +456,7 @@ If you see errors mentioning `mysqldump: [Warning] Using a password...`, this is
 
 ### Config not found
 
-Haive searches for TOML config files in order:
-1. `haive.toml`
-2. `.haive/config.toml`
+Haive looks for `.haive.toml` in your project root.
 
 ### Database operations fail with "not in allowed list"
 

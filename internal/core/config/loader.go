@@ -13,12 +13,11 @@ type Loader struct {
 	searchPaths []string
 }
 
-// NewLoader creates a new config loader with default search paths
+// NewLoader creates a new config loader
 func NewLoader() *Loader {
 	return &Loader{
 		searchPaths: []string{
-			"haive.toml",
-			".haive/config.toml",
+			".haive.toml",
 		},
 	}
 }
