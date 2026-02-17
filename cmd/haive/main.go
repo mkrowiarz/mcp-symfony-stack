@@ -305,6 +305,22 @@ After creating config, verify:
 - Database service name matches docker-compose service
 - Env var in DSN exists in .env or .env.local
 
+## MCP Integration (Optional)
+
+To enable AI assistant to directly call haive commands, install MCP config:
+
+` + "```bash" + `
+# User-level (available in all projects)
+haive mcp install claude    # or: kimi, codex
+
+# Project-level (only current project, creates .mcp.json)
+haive mcp install claude --local
+` + "```" + `
+
+Available MCP tools:
+- project_info, list_worktrees, create_worktree, remove_worktree
+- list_databases, clone_database, dump_database, drop_database, import_database
+
 ## Full Reference
 
 See: https://github.com/mkrowiarz/haive/blob/main/AGENTS.md
