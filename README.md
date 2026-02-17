@@ -72,7 +72,7 @@ haive checkout feature/pf-1234-demo --create
 haive switch
 
 # Run interactive TUI
-pm
+haive
 
 # Or use as MCP server for Claude Code
 haive --mcp
@@ -194,7 +194,7 @@ MCP servers are configured in `.claude/mcp.json` files.
 }
 ```
 
-If `pm` is not in PATH, use the full path: `"command": "/home/user/go/bin/pm"`.
+If `haive` is not in PATH, use the full path: `"command": "/home/user/go/bin/haive"`.
 
 **Option 2: Project-specific** (/path/to/project/.claude/mcp.json) - only for this project:
 
@@ -202,7 +202,7 @@ If `pm` is not in PATH, use the full path: `"command": "/home/user/go/bin/pm"`.
 {
   "mcpServers": {
     "haive": {
-      "command": "pm",
+      "command": "haive",
       "args": ["--mcp"]
     }
   }
@@ -303,15 +303,15 @@ haive wt ls
 
 # Create worktree for existing branch
 haive worktree create feature/my-feature
-pm wt create feature/my-feature
+haive wt create feature/my-feature
 
 # Create worktree with new branch
 haive worktree create feature/new-feature --new-branch
-pm wt add feature/new-feature -n
+haive wt add feature/new-feature -n
 
 # Remove worktree
 haive worktree remove feature/my-feature
-pm wt rm feature/my-feature
+haive wt rm feature/my-feature
 ```
 
 **Note:** Worktree commands require the `worktrees` section in your config.
