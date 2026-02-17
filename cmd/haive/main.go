@@ -120,7 +120,7 @@ func printHelp() {
 	fmt.Println()
 	fmt.Println(bold + "Examples:" + reset)
 	fmt.Println("  " + green + "haive init --write" + reset + "                 # Create config file")
-	fmt.Println("  " + green + "haive init --namespace --write" + reset + "     # Create namespaced config")
+	
 	fmt.Println("  " + green + "haive checkout feature/x --create" + reset + "  # Create branch with new db")
 	fmt.Println("  " + green + "haive checkout main" + reset + "                # Switch to main branch+db")
 	fmt.Println("  " + green + "haive switch" + reset + "                       # Switch db for current branch")
