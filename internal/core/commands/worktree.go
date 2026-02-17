@@ -11,6 +11,7 @@ import (
 	pmcore "github.com/mkrowiarz/mcp-symfony-stack/internal/core"
 	"github.com/mkrowiarz/mcp-symfony-stack/internal/core/config"
 	"github.com/mkrowiarz/mcp-symfony-stack/internal/core/types"
+	worktreepkg "github.com/mkrowiarz/mcp-symfony-stack/internal/core/worktree"
 	"github.com/mkrowiarz/mcp-symfony-stack/internal/executor"
 )
 
@@ -90,13 +91,22 @@ func Create(projectRoot string, branch string, newBranch bool) (*types.WorktreeC
 		return nil, err
 	}
 
-	// Copy files if configured
+	// 1. Copy files using new copy system
 	if cfg.Worktrees.Copy != nil {
-		if err := pmcore.CopyWorktreeFiles(cfg.ProjectRoot, worktreePath, cfg.Worktrees.Copy); err != nil {
+		copyConfig := &config.CopyConfig{
+			Include: cfg.Worktrees.Copy.Include,
+			Exclude: cfg.Worktrees.Copy.Exclude,
+		}
+		if err := worktreepkg.CopyFiles(cfg.ProjectRoot, worktreePath, copyConfig); err != nil {
 			// Log warning but don't fail the operation
 			fmt.Fprintf(os.Stderr, "Warning: failed to copy worktree files: %v\n", err)
 		}
 	}
+
+	// 2. Run postCreate hooks (placeholder for when we migrate fully to HaiveConfig)
+	// For now, hooks are not yet part of the old config.Worktrees struct
+	// When fully migrated, use hooks.NewExecutor() and hooks.HookContext from
+	// "github.com/mkrowiarz/mcp-symfony-stack/internal/core/hooks"
 
 	return &types.WorktreeCreateResult{
 		Path:   worktreePath,
