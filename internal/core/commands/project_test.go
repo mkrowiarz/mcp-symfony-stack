@@ -56,17 +56,10 @@ func TestInfo(t *testing.T) {
 			return
 		}
 
-		if info.ConfigSummary == nil {
-			t.Error("expected ConfigSummary to be populated")
+		// ConfigSummary is now always nil since we removed [project] section
+		if info.ConfigSummary != nil {
+			t.Error("expected ConfigSummary to be nil")
 			return
-		}
-
-		if info.ConfigSummary.Name != "facility-saas" {
-			t.Errorf("expected name 'facility-saas', got '%s'", info.ConfigSummary.Name)
-		}
-
-		if info.ConfigSummary.Type != "symfony" {
-			t.Errorf("expected type 'symfony', got '%s'", info.ConfigSummary.Type)
 		}
 
 		if !info.DockerComposeExists {

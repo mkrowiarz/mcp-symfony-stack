@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mkrowiarz/mcp-symfony-stack/internal/core/config"
 	"github.com/mkrowiarz/mcp-symfony-stack/internal/core/types"
 	"gopkg.in/yaml.v3"
 )
@@ -19,35 +18,8 @@ func Info(projectRoot string) (*types.ProjectInfo, error) {
 		projectRoot = "."
 	}
 
-	cfg, err := config.Load(projectRoot)
-	if err != nil {
-		if cmdErr, ok := err.(*types.CommandError); ok {
-			if cmdErr.Code == types.ErrConfigMissing {
-				return &types.ProjectInfo{
-					ConfigSummary:       nil,
-					EnvFiles:            detectEnvFiles(projectRoot),
-					DockerComposeExists: dockerComposeExists(projectRoot),
-				}, nil
-			}
-		}
-		return nil, err
-	}
-
-	if cfg.Project == nil {
-		return &types.ProjectInfo{
-			ConfigSummary:       nil,
-			EnvFiles:            detectEnvFiles(projectRoot),
-			DockerComposeExists: dockerComposeExists(projectRoot),
-		}, nil
-	}
-
-	summary := &types.ConfigSummary{
-		Name: cfg.Project.Name,
-		Type: cfg.Project.Type,
-	}
-
 	return &types.ProjectInfo{
-		ConfigSummary:       summary,
+		ConfigSummary:       nil,
 		EnvFiles:            detectEnvFiles(projectRoot),
 		DockerComposeExists: dockerComposeExists(projectRoot),
 	}, nil
@@ -64,8 +36,6 @@ func Init(projectRoot string) (*types.InitSuggestion, error) {
 		return nil, err
 	}
 
-	projectType := detectProjectType(projectRoot)
-	projectName := detectProjectName(projectRoot)
 	dbService, dbName := detectDatabase(projectRoot, services)
 
 	detectedEnvVars, err := detectEnvVars(projectRoot)
@@ -73,7 +43,7 @@ func Init(projectRoot string) (*types.InitSuggestion, error) {
 		return nil, err
 	}
 
-	suggestedConfig := generateSuggestedConfig(projectName, projectType, composeFiles, dbService, dbName)
+	suggestedConfig := generateSuggestedConfig(composeFiles, dbService, dbName)
 
 	return &types.InitSuggestion{
 		SuggestedConfig:  suggestedConfig,
@@ -284,13 +254,8 @@ func detectEnvVars(projectRoot string) ([]string, error) {
 	return vars, nil
 }
 
-func generateSuggestedConfig(projectName, projectType string, composeFiles []string, dbService, dbName string) string {
+func generateSuggestedConfig(composeFiles []string, dbService, dbName string) string {
 	var b strings.Builder
-
-	b.WriteString("[project]\n")
-	b.WriteString(fmt.Sprintf("name = %q\n", projectName))
-	b.WriteString(fmt.Sprintf("preset = %q\n", projectType))
-	b.WriteString("\n")
 
 	b.WriteString("[docker]\n")
 	if len(composeFiles) == 0 {

@@ -414,7 +414,6 @@ func handleServe(args []string) {
 	}
 
 	fmt.Printf("%s✓%s Worktree: %s\n", green, reset, result.Branch)
-	fmt.Printf("%s✓%s Project: %s\n", green, reset, result.ProjectName)
 	fmt.Printf("%s✓%s Started containers\n", green, reset)
 	fmt.Printf("%s✓%s URL: %s%s%s\n", green, reset, cyan, result.URL, reset)
 }

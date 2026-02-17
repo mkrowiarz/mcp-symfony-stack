@@ -80,16 +80,6 @@ func TestLoad(t *testing.T) {
 			cleanupFunc:   func() {},
 			expectedError: "",
 			checkFunc: func(t *testing.T, cfg *Config) {
-				if cfg.Project == nil {
-					t.Error("expected Project section, got nil")
-					return
-				}
-				if cfg.Project.Name != "shared-project" {
-					t.Errorf("expected project name 'shared-project', got '%s'", cfg.Project.Name)
-				}
-				if cfg.Project.Type != "symfony" {
-					t.Errorf("expected project type 'symfony', got '%s'", cfg.Project.Type)
-				}
 				if cfg.Database == nil {
 					t.Error("expected Database section, got nil")
 					return
@@ -111,10 +101,6 @@ func TestLoad(t *testing.T) {
 				sharedConfig := `{
 					"project": "other-tool",
 					"pm": {
-						"project": {
-							"name": "haive-dir-project",
-							"type": "laravel"
-						},
 						"docker": {
 							"compose_files": ["compose.yml"]
 						}
@@ -125,15 +111,12 @@ func TestLoad(t *testing.T) {
 			cleanupFunc:   func() {},
 			expectedError: "",
 			checkFunc: func(t *testing.T, cfg *Config) {
-				if cfg.Project == nil {
-					t.Error("expected Project section, got nil")
+				if cfg.Docker.ComposeFiles == nil {
+					t.Error("expected Docker ComposeFiles, got nil")
 					return
 				}
-				if cfg.Project.Name != "haive-dir-project" {
-					t.Errorf("expected project name 'haive-dir-project', got '%s'", cfg.Project.Name)
-				}
-				if cfg.Project.Type != "laravel" {
-					t.Errorf("expected project type 'laravel', got '%s'", cfg.Project.Type)
+				if len(cfg.Docker.ComposeFiles) != 1 || cfg.Docker.ComposeFiles[0] != "compose.yml" {
+					t.Errorf("expected compose_files ['compose.yml'], got %v", cfg.Docker.ComposeFiles)
 				}
 			},
 		},
@@ -185,17 +168,6 @@ func TestLoad(t *testing.T) {
 			if tt.checkFunc != nil {
 				tt.checkFunc(t, cfg)
 				return
-			}
-
-			if cfg.Project == nil {
-				t.Error("expected Project section, got nil")
-			} else {
-				if cfg.Project.Name != "facility-saas" {
-					t.Errorf("expected project name 'facility-saas', got '%s'", cfg.Project.Name)
-				}
-				if cfg.Project.Type != "symfony" {
-					t.Errorf("expected project type 'symfony', got '%s'", cfg.Project.Type)
-				}
 			}
 
 			if cfg.Docker == nil {

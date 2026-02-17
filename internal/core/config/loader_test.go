@@ -10,9 +10,6 @@ func TestLoader_Load_TOML(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	configContent := `
-[project]
-name = "test-project"
-
 [docker]
 compose_files = ["compose.yaml"]
 
@@ -37,10 +34,6 @@ allowed = ["test", "test_*"]
 		t.Fatalf("expected no error, got: %v", err)
 	}
 
-	if cfg.Project.Name != "test-project" {
-		t.Errorf("expected project name 'test-project', got '%s'", cfg.Project.Name)
-	}
-
 	if cfg.Worktree == nil || cfg.Worktree.BasePath != ".worktrees" {
 		t.Error("expected worktree config with base_path '.worktrees'")
 	}
@@ -51,8 +44,8 @@ func TestLoader_Load_Priority(t *testing.T) {
 
 	// Create config in .haive.toml
 	os.WriteFile(filepath.Join(tmpDir, ".haive.toml"), []byte(`
-[project]
-name = "nested-config"
+[docker]
+compose_files = ["compose.yaml"]
 `), 0644)
 
 	loader := NewLoader()
@@ -62,8 +55,8 @@ name = "nested-config"
 		t.Fatal(err)
 	}
 
-	if cfg.Project.Name != "nested-config" {
-		t.Errorf("expected 'nested-config', got: %s", cfg.Project.Name)
+	if cfg.Docker.ComposeFiles == nil || len(cfg.Docker.ComposeFiles) != 1 {
+		t.Errorf("expected compose_files, got: %v", cfg.Docker.ComposeFiles)
 	}
 }
 
@@ -87,20 +80,13 @@ func TestHaiveConfig_Validate(t *testing.T) {
 		{
 			name: "valid minimal",
 			cfg: HaiveConfig{
-				Project: ProjectConfig{Name: "test"},
-				Docker:  DockerConfig{ComposeFiles: []string{"compose.yaml"}},
+				Docker: DockerConfig{ComposeFiles: []string{"compose.yaml"}},
 			},
 			wantErr: false,
 		},
 		{
-			name:    "missing project name",
-			cfg:     HaiveConfig{},
-			wantErr: true,
-		},
-		{
 			name: "worktree without base_path",
 			cfg: HaiveConfig{
-				Project:  ProjectConfig{Name: "test"},
 				Worktree: &WorktreeConfig{},
 			},
 			wantErr: true,
@@ -108,7 +94,6 @@ func TestHaiveConfig_Validate(t *testing.T) {
 		{
 			name: "env without database",
 			cfg: HaiveConfig{
-				Project: ProjectConfig{Name: "test"},
 				Worktree: &WorktreeConfig{
 					BasePath: ".worktrees",
 					Env:      &EnvConfig{File: ".env.local", VarName: "DATABASE_URL"},

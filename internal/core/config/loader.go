@@ -77,8 +77,7 @@ func (l *Loader) parseFile(path string) (*HaiveConfig, error) {
 }
 
 func (l *Loader) hasContent(cfg *HaiveConfig) bool {
-	return cfg.Project.Name != "" ||
-		cfg.Docker.ComposeFiles != nil ||
+	return cfg.Docker.ComposeFiles != nil ||
 		cfg.Worktree != nil ||
 		cfg.Database != nil
 }

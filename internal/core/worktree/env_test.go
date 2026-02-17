@@ -21,7 +21,6 @@ OTHER_VAR=value
 	os.WriteFile(envPath, []byte(envContent), 0644)
 
 	cfg := &config.HaiveConfig{
-		Project: config.ProjectConfig{Name: "test"},
 		Database: &config.DatabaseConfig{
 			DSN: "mysql://user:pass@db:3306/main_db",
 		},
@@ -63,7 +62,6 @@ OTHER_VAR=value
 	os.WriteFile(envPath, []byte(envContent), 0644)
 
 	cfg := &config.HaiveConfig{
-		Project: config.ProjectConfig{Name: "test"},
 		Database: &config.DatabaseConfig{
 			DSN: "mysql://user:pass@db:3306/main_db",
 		},
@@ -90,7 +88,6 @@ func TestUpdateEnvFile_FileNotFound(t *testing.T) {
 	worktreePath := t.TempDir()
 
 	cfg := &config.HaiveConfig{
-		Project: config.ProjectConfig{Name: "test"},
 		Database: &config.DatabaseConfig{
 			DSN: "mysql://user:pass@db:3306/main_db",
 		},
@@ -112,7 +109,6 @@ func TestUpdateEnvFile_NoEnvConfig(t *testing.T) {
 	worktreePath := t.TempDir()
 
 	cfg := &config.HaiveConfig{
-		Project: config.ProjectConfig{Name: "test"},
 		Database: &config.DatabaseConfig{
 			DSN: "mysql://user:pass@db:3306/main_db",
 		},
@@ -132,7 +128,6 @@ func TestUpdateEnvFile_NoDatabaseConfig(t *testing.T) {
 	worktreePath := t.TempDir()
 
 	cfg := &config.HaiveConfig{
-		Project: config.ProjectConfig{Name: "test"},
 		// No Database config
 		Worktree: &config.WorktreeConfig{
 			Env: &config.EnvConfig{

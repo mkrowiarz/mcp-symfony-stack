@@ -12,7 +12,6 @@ import (
 )
 
 type Config struct {
-	Project   *Project   `json:"project"`
 	Docker    *Docker    `json:"docker"`
 	Database  *Database  `json:"database,omitempty"`
 	Worktrees *Worktrees `json:"worktrees,omitempty"`
@@ -20,11 +19,6 @@ type Config struct {
 	// ProjectRoot is the directory where the config file was found
 	// Used to resolve relative paths (e.g., docker-compose files)
 	ProjectRoot string `json:"-"`
-}
-
-type Project struct {
-	Name string `json:"name" toml:"name"`
-	Type string `json:"type" toml:"preset,omitempty"`
 }
 
 type Docker struct {
@@ -162,7 +156,7 @@ func Load(projectRoot string) (*Config, error) {
 }
 
 func hasPMContent(cfg *Config) bool {
-	return cfg.Project != nil || cfg.Database != nil || cfg.Docker != nil || cfg.Worktrees != nil
+	return cfg.Database != nil || cfg.Docker != nil || cfg.Worktrees != nil || cfg.Serve != nil
 }
 
 func validateConfig(cfg *Config, projectRoot string) (*Config, error) {

@@ -78,12 +78,6 @@ type DatabaseHooks struct {
 	PreDrop   []string `toml:"preDrop,omitempty" yaml:"preDrop,omitempty" json:"preDrop,omitempty"`
 }
 
-// ProjectConfig holds project metadata
-type ProjectConfig struct {
-	Name   string `toml:"name" yaml:"name" json:"name"`
-	Preset string `toml:"preset,omitempty" yaml:"preset,omitempty" json:"preset,omitempty"`
-}
-
 // DockerConfig holds Docker settings
 type DockerConfig struct {
 	ComposeFiles []string `toml:"compose_files,omitempty" yaml:"compose_files,omitempty" json:"compose_files,omitempty"`
@@ -92,7 +86,6 @@ type DockerConfig struct {
 
 // HaiveConfig is the top-level configuration structure
 type HaiveConfig struct {
-	Project     ProjectConfig   `toml:"project" yaml:"project" json:"project"`
 	Docker      DockerConfig    `toml:"docker" yaml:"docker" json:"docker"`
 	Worktree    *WorktreeConfig `toml:"worktree,omitempty" yaml:"worktree,omitempty" json:"worktree,omitempty"`
 	Database    *DatabaseConfig `toml:"database,omitempty" yaml:"database,omitempty" json:"database,omitempty"`
@@ -101,10 +94,6 @@ type HaiveConfig struct {
 
 // Validate validates the entire configuration
 func (c *HaiveConfig) Validate() error {
-	if c.Project.Name == "" {
-		return fmt.Errorf("project.name is required")
-	}
-
 	if c.Worktree != nil {
 		if err := c.Worktree.Validate(); err != nil {
 			return err

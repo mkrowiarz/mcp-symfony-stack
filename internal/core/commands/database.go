@@ -149,7 +149,6 @@ func DropDB(projectRoot, dbName string) (*types.DropResult, error) {
 		hookExec := hooks.NewExecutor(cfg.ProjectRoot)
 		hookCtx := &hooks.HookContext{
 			RepoRoot:     cfg.ProjectRoot,
-			ProjectName:  cfg.Project.Name,
 			DatabaseName: dbName,
 			DatabaseURL:  cfg.Database.DSN, // original DSN
 		}
@@ -263,7 +262,6 @@ func CloneDB(projectRoot, sourceDB, targetDB string) (*types.CloneResult, error)
 
 		hookCtx := &hooks.HookContext{
 			RepoRoot:       cfg.ProjectRoot,
-			ProjectName:    cfg.Project.Name,
 			DatabaseName:   targetDB,
 			DatabaseURL:    targetDSN.String(),
 			SourceDatabase: sourceDB,

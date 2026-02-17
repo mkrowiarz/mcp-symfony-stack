@@ -12,7 +12,6 @@ import (
 )
 
 type ServeResult struct {
-	ProjectName  string `json:"project_name"`
 	Branch       string `json:"branch"`
 	WorktreePath string `json:"worktree_path"`
 	Hostname     string `json:"hostname"`
@@ -73,7 +72,6 @@ func Serve(projectRoot string) (*ServeResult, error) {
 	hostname := fmt.Sprintf("%s-app.orb.local", projectName)
 
 	return &ServeResult{
-		ProjectName:  projectName,
 		Branch:       branch,
 		WorktreePath: projectRoot,
 		Hostname:     hostname,

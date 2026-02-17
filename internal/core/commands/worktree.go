@@ -138,7 +138,6 @@ func Create(projectRoot string, branch string, newBranch bool) (*types.WorktreeC
 		hookExec := hooks.NewExecutor(cfg.ProjectRoot)
 		hookCtx := &hooks.HookContext{
 			RepoRoot:     cfg.ProjectRoot,
-			ProjectName:  cfg.Project.Name,
 			WorktreePath: worktreePath,
 			WorktreeName: dirName,
 			Branch:       branch,
@@ -184,7 +183,6 @@ func Remove(projectRoot string, branch string) (*types.WorktreeRemoveResult, err
 		hookExec := hooks.NewExecutor(cfg.ProjectRoot)
 		hookCtx := &hooks.HookContext{
 			RepoRoot:     cfg.ProjectRoot,
-			ProjectName:  cfg.Project.Name,
 			WorktreePath: worktreePath,
 			WorktreeName: dirName,
 			Branch:       branch,
@@ -204,7 +202,6 @@ func Remove(projectRoot string, branch string) (*types.WorktreeRemoveResult, err
 		hookExec := hooks.NewExecutor(cfg.ProjectRoot)
 		hookCtx := &hooks.HookContext{
 			RepoRoot:     cfg.ProjectRoot,
-			ProjectName:  cfg.Project.Name,
 			WorktreeName: dirName,
 			Branch:       branch,
 		}

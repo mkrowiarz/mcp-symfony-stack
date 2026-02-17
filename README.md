@@ -79,10 +79,6 @@ Haive uses a TOML configuration file named `.haive.toml` in your project root.
 ### Minimal Config (`.haive.toml`)
 
 ```toml
-[project]
-name = "my-project"
-preset = "symfony"
-
 [docker]
 compose_files = ["docker-compose.yaml"]
 ```
@@ -90,10 +86,6 @@ compose_files = ["docker-compose.yaml"]
 ### Full Config Example (`.haive.toml`)
 
 ```toml
-[project]
-name = "my-project"
-preset = "symfony"
-
 [docker]
 compose_files = [
   "compose.yaml",
@@ -166,7 +158,6 @@ postRemove = ["echo 'Worktree removed'"]
 
 **Environment variables available to hooks:**
 - `REPO_ROOT` - Path to main repository
-- `PROJECT_NAME` - Project name from config
 - `WORKTREE_PATH` - Path to the worktree
 - `WORKTREE_NAME` - Name of the worktree
 - `BRANCH` - Git branch name
@@ -228,7 +219,7 @@ preDrop = ["./scripts/backup-before-drop.sh"]
 ```
 
 **Environment variables available to database hooks:**
-- `REPO_ROOT`, `PROJECT_NAME`
+- `REPO_ROOT`
 - `DATABASE_NAME` - The database being operated on
 - `DATABASE_URL` - Full connection URL
 - `SOURCE_DATABASE` - Source DB (for clone operations)
@@ -242,8 +233,6 @@ preDrop = ["./scripts/backup-before-drop.sh"]
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `project.name` | Yes | Project name for display |
-| `project.preset` | Yes | Project preset: `symfony`, `laravel`, `generic` |
 | `docker.compose_files` | Yes | Array of compose file paths (relative to project root) |
 | `database.service` | If database section exists | Docker Compose service name |
 | `database.dsn` | If database section exists | Database URL (supports `${VAR}` interpolation) |
