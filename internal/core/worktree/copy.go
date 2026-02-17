@@ -64,6 +64,8 @@ func CopyFiles(sourceDir, destDir string, copyConfig *config.CopyConfig) error {
 	return nil
 }
 
+// isExcluded checks if a path matches any of the exclude patterns.
+// Supports exact matches and directory prefix matches (patterns ending with /).
 func isExcluded(path string, excludePatterns []string) bool {
 	for _, pattern := range excludePatterns {
 		// Try exact match first
@@ -85,6 +87,8 @@ func isExcluded(path string, excludePatterns []string) bool {
 	return false
 }
 
+// copyFile copies a file from sourcePath to destPath, preserving permissions.
+// Creates parent directories as needed.
 func copyFile(sourcePath, destPath string) error {
 	// Create destination directory if needed
 	destDir := filepath.Dir(destPath)
@@ -114,7 +118,9 @@ func copyFile(sourcePath, destPath string) error {
 	// Copy permissions
 	sourceInfo, err := os.Stat(sourcePath)
 	if err == nil {
-		os.Chmod(destPath, sourceInfo.Mode())
+		if err := os.Chmod(destPath, sourceInfo.Mode()); err != nil {
+			return fmt.Errorf("failed to set permissions: %w", err)
+		}
 	}
 
 	return nil

@@ -85,4 +85,19 @@ func TestCopyFile(t *testing.T) {
 	if string(copied) != string(content) {
 		t.Errorf("copied content mismatch: got %q, want %q", string(copied), string(content))
 	}
+
+	// Verify permissions match
+	sourceInfo, err := os.Stat(sourcePath)
+	if err != nil {
+		t.Fatalf("failed to stat source file: %v", err)
+	}
+
+	destInfo, err := os.Stat(destPath)
+	if err != nil {
+		t.Fatalf("failed to stat destination file: %v", err)
+	}
+
+	if sourceInfo.Mode() != destInfo.Mode() {
+		t.Errorf("permissions mismatch: source=%o, dest=%o", sourceInfo.Mode(), destInfo.Mode())
+	}
 }
