@@ -281,6 +281,12 @@ func handleWorktree(args []string) {
 		os.Exit(1)
 	}
 
+	// Handle help flags
+	if args[0] == "--help" || args[0] == "-h" || args[0] == "help" {
+		printWorktreeHelp()
+		return
+	}
+
 	switch args[0] {
 	case "list", "ls":
 		worktrees, err := commands.List(".")
@@ -355,6 +361,38 @@ func handleWorktree(args []string) {
 		fmt.Fprintf(os.Stderr, "Usage: haive worktree <list|create|remove> [options]\n")
 		os.Exit(1)
 	}
+}
+
+func printWorktreeHelp() {
+	var (
+		reset   = "\033[0m"
+		bold    = "\033[1m"
+		cyan    = "\033[36m"
+		green   = "\033[32m"
+		yellow  = "\033[33m"
+		magenta = "\033[35m"
+	)
+
+	fmt.Println()
+	fmt.Println(cyan + "haive worktree" + reset + " - Manage git worktrees")
+	fmt.Println()
+	fmt.Println(bold + "Usage:" + reset)
+	fmt.Println("  " + green + "haive worktree <command> [options]" + reset)
+	fmt.Println()
+	fmt.Println(bold + "Commands:" + reset)
+	fmt.Println("  " + yellow + "list, ls" + reset + "              List all worktrees")
+	fmt.Println("  " + yellow + "create, add <branch>" + reset + "  Create new worktree")
+	fmt.Println("  " + yellow + "remove, rm <branch>" + reset + "   Remove worktree")
+	fmt.Println()
+	fmt.Println(bold + "Flags:" + reset)
+	fmt.Println("  " + magenta + "--new-branch, -n" + reset + "      Create new branch (with create)")
+	fmt.Println()
+	fmt.Println(bold + "Examples:" + reset)
+	fmt.Println("  " + green + "haive worktree list" + reset + "                  # List all worktrees")
+	fmt.Println("  " + green + "haive worktree create feature/x" + reset + "      # Create worktree from existing branch")
+	fmt.Println("  " + green + "haive worktree create feature/x -n" + reset + "   # Create worktree with new branch")
+	fmt.Println("  " + green + "haive worktree remove feature/x" + reset + "      # Remove worktree")
+	fmt.Println()
 }
 
 func handleServe(args []string) {
