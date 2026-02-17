@@ -106,6 +106,53 @@ func TestExecutor_ExecuteHooks_PreHookFailure(t *testing.T) {
 	}
 }
 
+func TestExecutor_ExecuteHooks_MissingScript(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	exec := NewExecutor(tmpDir)
+	ctx := &HookContext{
+		RepoRoot:    tmpDir,
+		ProjectName: "test",
+	}
+
+	// Pre-hook with missing script should return error
+	hooks := []string{"./nonexistent-script.sh"}
+	err := exec.ExecuteHooks(hooks, ctx, tmpDir, true)
+
+	if err == nil {
+		t.Error("expected error for missing pre-hook script")
+	}
+	if err != nil && err.Error() != "pre-hook script not found: "+tmpDir+"/nonexistent-script.sh" {
+		t.Errorf("unexpected error message: %v", err)
+	}
+
+	// Post-hook with missing script should NOT return error (just warning)
+	hooks = []string{"./nonexistent-script.sh"}
+	err = exec.ExecuteHooks(hooks, ctx, tmpDir, false)
+
+	if err != nil {
+		t.Errorf("expected no error for missing post-hook script, got: %v", err)
+	}
+}
+
+func TestExecutor_ExecuteHooks_PostHookFailure(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	exec := NewExecutor(tmpDir)
+	ctx := &HookContext{
+		RepoRoot:    tmpDir,
+		ProjectName: "test",
+	}
+
+	// Post-hook that fails should NOT return error (just log warning)
+	hooks := []string{"exit 1"}
+	err := exec.ExecuteHooks(hooks, ctx, tmpDir, false)
+
+	if err != nil {
+		t.Errorf("expected no error for failed post-hook, got: %v", err)
+	}
+}
+
 func TestIsScriptFile(t *testing.T) {
 	tests := []struct {
 		input    string

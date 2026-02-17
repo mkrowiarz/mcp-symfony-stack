@@ -26,7 +26,7 @@ type HookContext struct {
 	TargetDatabase string
 }
 
-// ToEnv returns the context as environment variable slice
+// ToEnv returns os.Environ() plus context variables
 func (c *HookContext) ToEnv() []string {
 	env := os.Environ()
 
@@ -124,8 +124,10 @@ func (e *Executor) executeHook(hook string, ctx *HookContext, workingDir string,
 	return nil
 }
 
+// isScriptFile checks if hook is a script file by looking for path separators.
+// It does NOT check if the file actually exists - that is done separately.
 func isScriptFile(hook string) bool {
-	// If it contains a path separator and the file exists, treat as script
+	// If it contains a path separator, treat as script
 	if strings.Contains(hook, "/") || strings.Contains(hook, "\\") {
 		return true
 	}
