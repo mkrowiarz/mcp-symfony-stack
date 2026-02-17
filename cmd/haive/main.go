@@ -638,33 +638,45 @@ func printServeHelp() {
 
 func handleMCP(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintf(os.Stderr, "Usage: haive mcp install <claude|kimi|codex>\n")
+		fmt.Fprintf(os.Stderr, "Usage: haive mcp install <claude|kimi|codex> [--local]\n")
 		os.Exit(1)
 	}
 
 	switch args[0] {
 	case "install", "add":
 		if len(args) < 2 {
-			fmt.Fprintf(os.Stderr, "Usage: haive mcp install <claude|kimi|codex>\n")
+			fmt.Fprintf(os.Stderr, "Usage: haive mcp install <claude|kimi|codex> [--local]\n")
 			os.Exit(1)
 		}
-		installMCP(args[1])
+		localFlag := false
+		for _, arg := range args[2:] {
+			if arg == "--local" || arg == "-l" {
+				localFlag = true
+			}
+		}
+		installMCP(args[1], localFlag)
 	case "remove", "rm":
 		if len(args) < 2 {
-			fmt.Fprintf(os.Stderr, "Usage: haive mcp remove <claude|kimi|codex>\n")
+			fmt.Fprintf(os.Stderr, "Usage: haive mcp remove <claude|kimi|codex> [--local]\n")
 			os.Exit(1)
 		}
-		removeMCP(args[1])
+		localFlag := false
+		for _, arg := range args[2:] {
+			if arg == "--local" || arg == "-l" {
+				localFlag = true
+			}
+		}
+		removeMCP(args[1], localFlag)
 	case "help", "--help", "-h":
 		printMCPHelp()
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown mcp command: %s\n", args[0])
-		fmt.Fprintf(os.Stderr, "Usage: haive mcp install <claude|kimi|codex>\n")
+		fmt.Fprintf(os.Stderr, "Usage: haive mcp install <claude|kimi|codex> [--local]\n")
 		os.Exit(1)
 	}
 }
 
-func installMCP(tool string) {
+func installMCP(tool string, local bool) {
 	var (
 		reset  = "\033[0m"
 		green  = "\033[32m"
@@ -676,11 +688,23 @@ func installMCP(tool string) {
 	var err error
 	switch tool {
 	case "claude", "claude-code":
-		err = installClaudeMCP()
+		if local {
+			err = installClaudeMCPLocal()
+		} else {
+			err = installClaudeMCP()
+		}
 	case "kimi", "kimi-cli":
-		err = installKimiMCP()
+		if local {
+			err = installKimiMCPLocal()
+		} else {
+			err = installKimiMCP()
+		}
 	case "codex":
-		err = installCodexMCP()
+		if local {
+			err = installCodexMCPLocal()
+		} else {
+			err = installCodexMCP()
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown tool: %s\n", tool)
 		fmt.Fprintf(os.Stderr, "Supported tools: claude, kimi, codex\n")
@@ -692,7 +716,12 @@ func installMCP(tool string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("%s✓%s MCP config installed for %s%s%s\n", green, reset, cyan, tool, reset)
+	location := "user config"
+	if local {
+		location = "project config (.mcp.json)"
+	}
+
+	fmt.Printf("%s✓%s MCP config installed for %s%s%s (%s)\n", green, reset, cyan, tool, reset, location)
 	fmt.Println()
 	fmt.Println("Restart your AI assistant or start a new session to use haive tools.")
 	fmt.Println()
@@ -708,7 +737,7 @@ func installMCP(tool string) {
 	fmt.Println("  • import_database    - Import a database from dump")
 }
 
-func removeMCP(tool string) {
+func removeMCP(tool string, local bool) {
 	var (
 		reset = "\033[0m"
 		green = "\033[32m"
@@ -718,11 +747,23 @@ func removeMCP(tool string) {
 	var err error
 	switch tool {
 	case "claude", "claude-code":
-		err = removeClaudeMCP()
+		if local {
+			err = removeClaudeMCPLocal()
+		} else {
+			err = removeClaudeMCP()
+		}
 	case "kimi", "kimi-cli":
-		err = removeKimiMCP()
+		if local {
+			err = removeKimiMCPLocal()
+		} else {
+			err = removeKimiMCP()
+		}
 	case "codex":
-		err = removeCodexMCP()
+		if local {
+			err = removeCodexMCPLocal()
+		} else {
+			err = removeCodexMCP()
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown tool: %s\n", tool)
 		os.Exit(1)
@@ -733,7 +774,11 @@ func removeMCP(tool string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("%s✓%s MCP config removed for %s\n", green, reset, tool)
+	location := "user config"
+	if local {
+		location = "project config"
+	}
+	fmt.Printf("%s✓%s MCP config removed for %s (%s)\n", green, reset, tool, location)
 }
 
 func installClaudeMCP() error {
@@ -979,29 +1024,34 @@ func removeCodexMCP() error {
 
 func printMCPHelp() {
 	var (
-		reset  = "\033[0m"
-		bold   = "\033[1m"
-		cyan   = "\033[36m"
-		green  = "\033[32m"
-		yellow = "\033[33m"
+		reset   = "\033[0m"
+		bold    = "\033[1m"
+		cyan    = "\033[36m"
+		green   = "\033[32m"
+		yellow  = "\033[33m"
+		magenta = "\033[35m"
 	)
 
 	fmt.Println()
 	fmt.Println(cyan + "haive mcp" + reset + " - Manage MCP server configuration for AI assistants")
 	fmt.Println()
 	fmt.Println(bold + "Usage:" + reset)
-	fmt.Println("  " + green + "haive mcp install <tool>" + reset + "   Install MCP config")
-	fmt.Println("  " + green + "haive mcp remove <tool>" + reset + "    Remove MCP config")
+	fmt.Println("  " + green + "haive mcp install <tool>" + reset + "       Install MCP config (user-level)")
+	fmt.Println("  " + green + "haive mcp install <tool> --local" + reset + "  Install MCP config (project-level)")
+	fmt.Println("  " + green + "haive mcp remove <tool>" + reset + "        Remove MCP config")
 	fmt.Println()
 	fmt.Println(bold + "Supported tools:" + reset)
 	fmt.Println("  " + yellow + "claude" + reset + "                Claude Code")
 	fmt.Println("  " + yellow + "kimi" + reset + "                  Kimi CLI")
 	fmt.Println("  " + yellow + "codex" + reset + "                 OpenAI Codex CLI")
 	fmt.Println()
+	fmt.Println(bold + "Flags:" + reset)
+	fmt.Println("  " + magenta + "--local, -l" + reset + "           Install in current project only (.mcp.json)")
+	fmt.Println()
 	fmt.Println(bold + "Examples:" + reset)
-	fmt.Println("  " + green + "haive mcp install claude" + reset + "   # Install for Claude Code")
-	fmt.Println("  " + green + "haive mcp install kimi" + reset + "     # Install for Kimi CLI")
-	fmt.Println("  " + green + "haive mcp remove claude" + reset + "    # Remove from Claude Code")
+	fmt.Println("  " + green + "haive mcp install claude" + reset + "          # Install for Claude Code (user-level)")
+	fmt.Println("  " + green + "haive mcp install claude --local" + reset + "  # Install in current project")
+	fmt.Println("  " + green + "haive mcp remove claude" + reset + "           # Remove from Claude Code")
 	fmt.Println()
 	fmt.Println(bold + "What this does:" + reset)
 	fmt.Println("  Installs haive as an MCP server so your AI assistant can:")
@@ -1009,4 +1059,96 @@ func printMCPHelp() {
 	fmt.Println("  • Clone, dump, and import databases")
 	fmt.Println("  • Get project information")
 	fmt.Println()
+	fmt.Println(bold + "Config locations:" + reset)
+	fmt.Println("  User-level:  ~/.claude/settings.json (Claude), ~/.config/kimi/mcp.json (Kimi)")
+	fmt.Println("  Project-level: .mcp.json (in current directory)")
+	fmt.Println()
+}
+
+func installClaudeMCPLocal() error {
+	configPath := ".mcp.json"
+	
+	config := map[string]interface{}{
+		"mcpServers": map[string]interface{}{
+			"haive": map[string]interface{}{
+				"command": "haive",
+				"args":    []string{"--mcp"},
+			},
+		},
+	}
+
+	// Try to read existing config
+	if data, err := os.ReadFile(configPath); err == nil {
+		var existing map[string]interface{}
+		if err := json.Unmarshal(data, &existing); err == nil {
+			if mcpServers, ok := existing["mcpServers"].(map[string]interface{}); ok {
+				mcpServers["haive"] = config["mcpServers"].(map[string]interface{})["haive"]
+				config["mcpServers"] = mcpServers
+			} else {
+				existing["mcpServers"] = config["mcpServers"]
+			}
+			config = existing
+		}
+	}
+
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(configPath, data, 0644)
+}
+
+func removeClaudeMCPLocal() error {
+	configPath := ".mcp.json"
+	
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	var config map[string]interface{}
+	if err := json.Unmarshal(data, &config); err != nil {
+		return err
+	}
+
+	if mcpServers, ok := config["mcpServers"].(map[string]interface{}); ok {
+		delete(mcpServers, "haive")
+		if len(mcpServers) == 0 {
+			delete(config, "mcpServers")
+		}
+	}
+
+	// If config is empty, remove the file
+	if len(config) == 0 {
+		return os.Remove(configPath)
+	}
+
+	data, err = json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(configPath, data, 0644)
+}
+
+func installKimiMCPLocal() error {
+	// Kimi uses the same .mcp.json format as Claude at project level
+	return installClaudeMCPLocal()
+}
+
+func removeKimiMCPLocal() error {
+	return removeClaudeMCPLocal()
+}
+
+func installCodexMCPLocal() error {
+	// Codex also uses .mcp.json at project level
+	return installClaudeMCPLocal()
+}
+
+func removeCodexMCPLocal() error {
+	return removeClaudeMCPLocal()
 }
