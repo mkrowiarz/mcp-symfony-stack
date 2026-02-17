@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/mkrowiarz/mcp-symfony-stack/internal/core/commands"
@@ -55,6 +57,9 @@ func main() {
 		case "serve":
 			handleServe(args[1:])
 			return
+		case "mcp":
+			handleMCP(args[1:])
+			return
 		case "help", "--help", "-h":
 			printHelp()
 			return
@@ -97,6 +102,7 @@ func printHelp() {
 	fmt.Println()
 	fmt.Println(bold + "Init Flags:" + reset)
 	fmt.Println("  " + magenta + "--write, -w" + reset + "           Write config to .haive.toml")
+	fmt.Println("  " + magenta + "--ai, -a" + reset + "              Show AI configuration instructions")
 	fmt.Println()
 	fmt.Println(bold + "Checkout Flags:" + reset)
 	fmt.Println("  " + magenta + "--create, -c" + reset + "          Create new branch")
@@ -116,6 +122,9 @@ func printHelp() {
 	fmt.Println(bold + "Serve Commands:" + reset)
 	fmt.Println("  " + yellow + "serve" + reset + "                  Start containers for current worktree")
 	fmt.Println("  " + yellow + "serve stop" + reset + "             Stop containers for current worktree")
+	fmt.Println()
+	fmt.Println(bold + "MCP Commands:" + reset)
+	fmt.Println("  " + yellow + "mcp install <tool>" + reset + "     Install MCP config for AI tool (claude/kimi/codex)")
 	fmt.Println()
 	fmt.Println(bold + "Examples:" + reset)
 	fmt.Println("  " + green + "haive init --write" + reset + "                 # Create config file")
@@ -138,10 +147,19 @@ func printHelp() {
 
 func handleInit(args []string) {
 	writeFlag := false
+	aiFlag := false
 	for _, arg := range args {
 		if arg == "--write" || arg == "-w" {
 			writeFlag = true
 		}
+		if arg == "--ai" || arg == "-a" {
+			aiFlag = true
+		}
+	}
+
+	if aiFlag {
+		printAIInstructions()
+		return
 	}
 
 	result, err := commands.Init(".")
@@ -170,6 +188,122 @@ func handleInit(args []string) {
 	} else {
 		fmt.Println(config)
 	}
+}
+
+func printAIInstructions() {
+	fmt.Println(`# Haive AI Configuration Instructions
+
+You are helping configure haive - a development environment manager for Docker Compose projects.
+
+## Detection (Analyze the project)
+
+1. **Docker Compose Files**: Find all docker-compose*.yml, compose*.yaml files
+2. **Database Service**: Look for services named: database, db, mysql, postgres, mariadb
+3. **Project Type**: Check for framework indicators:
+   - composer.json → PHP/Symfony
+   - package.json → Node.js
+   - go.mod → Go
+   - Cargo.toml → Rust
+4. **Worktree Support**: Check if .worktrees/ directory exists or is in .gitignore
+
+## Configuration Sections
+
+` + "```toml" + `
+# REQUIRED: Docker compose files
+[docker]
+compose_files = ["docker-compose.yml"]  # List all compose files in merge order
+
+# OPTIONAL: Database operations
+[database]
+service = "database"              # Docker service name for DB container
+dsn = "${DATABASE_URL}"           # Connection string, supports env vars
+allowed = ["myapp", "myapp_*"]    # Allowed DB names (glob patterns)
+dumps_path = "var/dumps"          # Where to store DB dumps (default: var/dumps)
+
+# OPTIONAL: Worktree support
+[worktree]
+base_path = ".worktrees"          # Where worktrees are created
+db_per_worktree = true            # Auto-create DB per worktree
+
+[worktree.copy]                   # Files to copy to new worktrees
+include = [".env.local", "docker/**/*.yaml"]
+exclude = ["vendor/", "node_modules/", ".git/"]
+
+[worktree.env]                    # Per-worktree env configuration
+file = ".env.local"
+var_name = "DATABASE_URL"
+
+# OPTIONAL: Container management per worktree
+[serve]
+compose_files = ["docker/dev/compose.app.yaml"]
+
+[serve.worktree]                  # Worktree-specific compose overrides
+compose_files = ["docker/dev/compose.worktree.yaml"]
+` + "```" + `
+
+## Common Patterns
+
+**Simple project with database:**
+` + "```toml" + `
+[docker]
+compose_files = ["docker-compose.yml"]
+
+[database]
+service = "db"
+dsn = "${DATABASE_URL}"
+allowed = ["myapp", "myapp_*"]
+` + "```" + `
+
+**Modular compose with worktrees:**
+` + "```toml" + `
+[docker]
+compose_files = ["compose.yaml", "docker/dev/compose.database.yaml"]
+
+[database]
+service = "database"
+dsn = "mysql://root:root@database:3306/${DB_NAME}"
+allowed = ["myapp", "myapp_*"]
+
+[worktree]
+base_path = ".worktrees"
+db_per_worktree = true
+
+[worktree.copy]
+include = [".env.local", "docker/**/*.yaml"]
+
+[worktree.env]
+file = ".env.local"
+var_name = "DATABASE_URL"
+
+[serve]
+compose_files = ["compose.yaml", "docker/dev/compose.database.yaml", "docker/dev/compose.app.yaml"]
+
+[serve.worktree]
+compose_files = ["docker/dev/compose.app.yaml"]
+` + "```" + `
+
+## Steps to Configure
+
+1. Run 'haive init' to see auto-detected config
+2. Check which docker-compose files exist and their purpose
+3. Identify if database service exists and its name
+4. Check if worktree support is desired (multiple parallel branches)
+5. Create .haive.toml with appropriate sections
+6. Run 'haive init' again to validate (should show your config)
+7. Test: 'haive worktree list', 'haive checkout <branch>'
+
+## Validation
+
+After creating config, verify:
+- 'haive init' shows expected compose files
+- 'cat .haive.toml' has valid TOML syntax
+- Database service name matches docker-compose service
+- Env var in DSN exists in .env or .env.local
+
+## Full Reference
+
+See: https://github.com/mkrowiarz/haive/blob/main/AGENTS.md
+`)
 }
 
 func handleCheckout(args []string) {
@@ -494,5 +628,380 @@ func printServeHelp() {
 	fmt.Println(bold + "Examples:" + reset)
 	fmt.Println("  " + green + "haive serve" + reset + "             # Start containers")
 	fmt.Println("  " + green + "haive serve stop" + reset + "        # Stop containers")
+	fmt.Println()
+}
+
+func handleMCP(args []string) {
+	if len(args) == 0 {
+		fmt.Fprintf(os.Stderr, "Usage: haive mcp install <claude|kimi|codex>\n")
+		os.Exit(1)
+	}
+
+	switch args[0] {
+	case "install", "add":
+		if len(args) < 2 {
+			fmt.Fprintf(os.Stderr, "Usage: haive mcp install <claude|kimi|codex>\n")
+			os.Exit(1)
+		}
+		installMCP(args[1])
+	case "remove", "rm":
+		if len(args) < 2 {
+			fmt.Fprintf(os.Stderr, "Usage: haive mcp remove <claude|kimi|codex>\n")
+			os.Exit(1)
+		}
+		removeMCP(args[1])
+	case "help", "--help", "-h":
+		printMCPHelp()
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown mcp command: %s\n", args[0])
+		fmt.Fprintf(os.Stderr, "Usage: haive mcp install <claude|kimi|codex>\n")
+		os.Exit(1)
+	}
+}
+
+func installMCP(tool string) {
+	var (
+		reset  = "\033[0m"
+		green  = "\033[32m"
+		red    = "\033[31m"
+		cyan   = "\033[36m"
+		yellow = "\033[33m"
+	)
+
+	var err error
+	switch tool {
+	case "claude", "claude-code":
+		err = installClaudeMCP()
+	case "kimi", "kimi-cli":
+		err = installKimiMCP()
+	case "codex":
+		err = installCodexMCP()
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown tool: %s\n", tool)
+		fmt.Fprintf(os.Stderr, "Supported tools: claude, kimi, codex\n")
+		os.Exit(1)
+	}
+
+	if err != nil {
+		fmt.Printf("%s✗ Error:%s %v\n", red, reset, err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("%s✓%s MCP config installed for %s%s%s\n", green, reset, cyan, tool, reset)
+	fmt.Println()
+	fmt.Println("Restart your AI assistant or start a new session to use haive tools.")
+	fmt.Println()
+	fmt.Println(yellow + "Available tools:" + reset)
+	fmt.Println("  • project_info       - Get project information")
+	fmt.Println("  • list_worktrees     - List all worktrees")
+	fmt.Println("  • create_worktree    - Create a new worktree")
+	fmt.Println("  • remove_worktree    - Remove a worktree")
+	fmt.Println("  • list_databases     - List all databases")
+	fmt.Println("  • clone_database     - Clone a database")
+	fmt.Println("  • dump_database      - Create a database dump")
+	fmt.Println("  • drop_database      - Drop a database")
+	fmt.Println("  • import_database    - Import a database from dump")
+}
+
+func removeMCP(tool string) {
+	var (
+		reset = "\033[0m"
+		green = "\033[32m"
+		red   = "\033[31m"
+	)
+
+	var err error
+	switch tool {
+	case "claude", "claude-code":
+		err = removeClaudeMCP()
+	case "kimi", "kimi-cli":
+		err = removeKimiMCP()
+	case "codex":
+		err = removeCodexMCP()
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown tool: %s\n", tool)
+		os.Exit(1)
+	}
+
+	if err != nil {
+		fmt.Printf("%s✗ Error:%s %v\n", red, reset, err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("%s✓%s MCP config removed for %s\n", green, reset, tool)
+}
+
+func installClaudeMCP() error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	configDir := filepath.Join(homeDir, ".claude")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return err
+	}
+
+	configPath := filepath.Join(configDir, "settings.json")
+	
+	config := map[string]interface{}{
+		"mcpServers": map[string]interface{}{
+			"haive": map[string]interface{}{
+				"command": "haive",
+				"args":    []string{"--mcp"},
+			},
+		},
+	}
+
+	// Try to read existing config
+	if data, err := os.ReadFile(configPath); err == nil {
+		var existing map[string]interface{}
+		if err := json.Unmarshal(data, &existing); err == nil {
+			// Merge with existing
+			if mcpServers, ok := existing["mcpServers"].(map[string]interface{}); ok {
+				mcpServers["haive"] = config["mcpServers"].(map[string]interface{})["haive"]
+				config["mcpServers"] = mcpServers
+			} else {
+				existing["mcpServers"] = config["mcpServers"]
+			}
+			config = existing
+		}
+	}
+
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(configPath, data, 0644)
+}
+
+func removeClaudeMCP() error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	configPath := filepath.Join(homeDir, ".claude", "settings.json")
+	
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	var config map[string]interface{}
+	if err := json.Unmarshal(data, &config); err != nil {
+		return err
+	}
+
+	if mcpServers, ok := config["mcpServers"].(map[string]interface{}); ok {
+		delete(mcpServers, "haive")
+		if len(mcpServers) == 0 {
+			delete(config, "mcpServers")
+		}
+	}
+
+	data, err = json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(configPath, data, 0644)
+}
+
+func installKimiMCP() error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	configDir := filepath.Join(homeDir, ".config", "kimi")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return err
+	}
+
+	configPath := filepath.Join(configDir, "mcp.json")
+	
+	config := map[string]interface{}{
+		"mcpServers": map[string]interface{}{
+			"haive": map[string]interface{}{
+				"command": "haive",
+				"args":    []string{"--mcp"},
+			},
+		},
+	}
+
+	// Try to read existing config
+	if data, err := os.ReadFile(configPath); err == nil {
+		var existing map[string]interface{}
+		if err := json.Unmarshal(data, &existing); err == nil {
+			if mcpServers, ok := existing["mcpServers"].(map[string]interface{}); ok {
+				mcpServers["haive"] = config["mcpServers"].(map[string]interface{})["haive"]
+				config["mcpServers"] = mcpServers
+			} else {
+				existing["mcpServers"] = config["mcpServers"]
+			}
+			config = existing
+		}
+	}
+
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(configPath, data, 0644)
+}
+
+func removeKimiMCP() error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	configPath := filepath.Join(homeDir, ".config", "kimi", "mcp.json")
+	
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	var config map[string]interface{}
+	if err := json.Unmarshal(data, &config); err != nil {
+		return err
+	}
+
+	if mcpServers, ok := config["mcpServers"].(map[string]interface{}); ok {
+		delete(mcpServers, "haive")
+		if len(mcpServers) == 0 {
+			delete(config, "mcpServers")
+		}
+	}
+
+	data, err = json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(configPath, data, 0644)
+}
+
+func installCodexMCP() error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	configDir := filepath.Join(homeDir, ".codex")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return err
+	}
+
+	configPath := filepath.Join(configDir, "config.json")
+	
+	config := map[string]interface{}{
+		"mcpServers": map[string]interface{}{
+			"haive": map[string]interface{}{
+				"command": "haive",
+				"args":    []string{"--mcp"},
+			},
+		},
+	}
+
+	// Try to read existing config
+	if data, err := os.ReadFile(configPath); err == nil {
+		var existing map[string]interface{}
+		if err := json.Unmarshal(data, &existing); err == nil {
+			if mcpServers, ok := existing["mcpServers"].(map[string]interface{}); ok {
+				mcpServers["haive"] = config["mcpServers"].(map[string]interface{})["haive"]
+				config["mcpServers"] = mcpServers
+			} else {
+				existing["mcpServers"] = config["mcpServers"]
+			}
+			config = existing
+		}
+	}
+
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(configPath, data, 0644)
+}
+
+func removeCodexMCP() error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	configPath := filepath.Join(homeDir, ".codex", "config.json")
+	
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	var config map[string]interface{}
+	if err := json.Unmarshal(data, &config); err != nil {
+		return err
+	}
+
+	if mcpServers, ok := config["mcpServers"].(map[string]interface{}); ok {
+		delete(mcpServers, "haive")
+		if len(mcpServers) == 0 {
+			delete(config, "mcpServers")
+		}
+	}
+
+	data, err = json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(configPath, data, 0644)
+}
+
+func printMCPHelp() {
+	var (
+		reset  = "\033[0m"
+		bold   = "\033[1m"
+		cyan   = "\033[36m"
+		green  = "\033[32m"
+		yellow = "\033[33m"
+	)
+
+	fmt.Println()
+	fmt.Println(cyan + "haive mcp" + reset + " - Manage MCP server configuration for AI assistants")
+	fmt.Println()
+	fmt.Println(bold + "Usage:" + reset)
+	fmt.Println("  " + green + "haive mcp install <tool>" + reset + "   Install MCP config")
+	fmt.Println("  " + green + "haive mcp remove <tool>" + reset + "    Remove MCP config")
+	fmt.Println()
+	fmt.Println(bold + "Supported tools:" + reset)
+	fmt.Println("  " + yellow + "claude" + reset + "                Claude Code")
+	fmt.Println("  " + yellow + "kimi" + reset + "                  Kimi CLI")
+	fmt.Println("  " + yellow + "codex" + reset + "                 OpenAI Codex CLI")
+	fmt.Println()
+	fmt.Println(bold + "Examples:" + reset)
+	fmt.Println("  " + green + "haive mcp install claude" + reset + "   # Install for Claude Code")
+	fmt.Println("  " + green + "haive mcp install kimi" + reset + "     # Install for Kimi CLI")
+	fmt.Println("  " + green + "haive mcp remove claude" + reset + "    # Remove from Claude Code")
+	fmt.Println()
+	fmt.Println(bold + "What this does:" + reset)
+	fmt.Println("  Installs haive as an MCP server so your AI assistant can:")
+	fmt.Println("  • List and manage worktrees")
+	fmt.Println("  • Clone, dump, and import databases")
+	fmt.Println("  • Get project information")
 	fmt.Println()
 }
