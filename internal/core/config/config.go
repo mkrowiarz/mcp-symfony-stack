@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/BurntSushi/toml"
 	"github.com/mkrowiarz/mcp-symfony-stack/internal/core/dsn"
 	"github.com/mkrowiarz/mcp-symfony-stack/internal/core/types"
 )
@@ -15,40 +16,48 @@ type Config struct {
 	Docker    *Docker    `json:"docker"`
 	Database  *Database  `json:"database,omitempty"`
 	Worktrees *Worktrees `json:"worktrees,omitempty"`
+	Serve     *Serve     `json:"serve,omitempty"`
 	// ProjectRoot is the directory where the config file was found
 	// Used to resolve relative paths (e.g., docker-compose files)
 	ProjectRoot string `json:"-"`
 }
 
 type Project struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
+	Name string `json:"name" toml:"name"`
+	Type string `json:"type" toml:"preset,omitempty"`
 }
 
 type Docker struct {
-	ComposeFiles []string `json:"compose_files,omitempty"`
-	ProjectName  string   `json:"project_name,omitempty"`
+	ComposeFiles []string `json:"compose_files,omitempty" toml:"compose_files,omitempty"`
+	ProjectName  string   `json:"project_name,omitempty" toml:"project_name,omitempty"`
 }
 
 type Database struct {
-	Service   string         `json:"service"`
-	DSN       string         `json:"dsn"`
-	Allowed   []string       `json:"allowed"`
-	DumpsPath string         `json:"dumps_path,omitempty"`
-	Prefix    string         `json:"prefix,omitempty"`
-	Hooks     *DatabaseHooks `json:"hooks,omitempty"`
+	Service   string         `json:"service" toml:"service"`
+	DSN       string         `json:"dsn" toml:"dsn"`
+	Allowed   []string       `json:"allowed" toml:"allowed"`
+	DumpsPath string         `json:"dumps_path,omitempty" toml:"dumps_path,omitempty"`
+	Prefix    string         `json:"prefix,omitempty" toml:"prefix,omitempty"`
+	Hooks     *DatabaseHooks `json:"hooks,omitempty" toml:"hooks,omitempty"`
 }
 
 type Worktrees struct {
-	BasePath      string        `json:"base_path"`
-	DBPerWorktree bool          `json:"db_per_worktree,omitempty"`
-	DBPrefix      string        `json:"db_prefix,omitempty"`
-	Copy          *WorktreeCopy `json:"copy,omitempty"`
+	BasePath      string            `json:"base_path" toml:"base_path"`
+	DBPerWorktree bool              `json:"db_per_worktree,omitempty" toml:"db_per_worktree,omitempty"`
+	DBPrefix      string            `json:"db_prefix,omitempty" toml:"db_prefix,omitempty"`
+	Copy          *WorktreeCopy     `json:"copy,omitempty" toml:"copy,omitempty"`
+	Hooks         *WorktreeHooks    `json:"hooks,omitempty" toml:"hooks,omitempty"`
+	Env           *EnvConfig        `json:"env,omitempty" toml:"env,omitempty"`
 }
 
 type WorktreeCopy struct {
-	Include []string `json:"include,omitempty"`
-	Exclude []string `json:"exclude,omitempty"`
+	Include []string `json:"include,omitempty" toml:"include,omitempty"`
+	Exclude []string `json:"exclude,omitempty" toml:"exclude,omitempty"`
+}
+
+// Serve holds serve command configuration
+type Serve struct {
+	ComposeFiles []string `json:"compose_files" toml:"compose_files"`
 }
 
 // Phase 2: Database and Worktrees sections are not validated/used in phase 1
@@ -66,6 +75,17 @@ func Load(projectRoot string) (*Config, error) {
 	}
 
 	for {
+		// First, try TOML config (new standard)
+		tomlPath := filepath.Join(searchDir, ".haive.toml")
+		if _, err := os.Stat(tomlPath); err == nil {
+			cfg, err := loadTOML(tomlPath)
+			if err == nil && cfg != nil {
+				cfg.ProjectRoot = searchDir
+				return validateConfig(cfg, searchDir)
+			}
+		}
+
+		// Fall back to JSON configs (legacy support)
 		configPaths := []string{
 			filepath.Join(searchDir, ".claude", "project.json"),
 			filepath.Join(searchDir, ".haive", "config.json"),
@@ -189,4 +209,19 @@ func validateConfig(cfg *Config, projectRoot string) (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// loadTOML loads configuration from a TOML file
+func loadTOML(path string) (*Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg Config
+	if err := toml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse TOML: %w", err)
+	}
+
+	return &cfg, nil
 }

@@ -126,6 +126,9 @@ preRemove = ["./scripts/cleanup.sh"]
 [worktree.env]
 file = ".env.local"
 var_name = "DATABASE_URL"
+
+[serve]
+compose_files = ["docker-compose.yml", "compose.worktree.yaml"]
 ```
 
 **Note:** `database.allowed` is required when the database section is present. Use glob patterns like `["app", "app_*"]` to specify which databases can be operated on.
@@ -191,6 +194,29 @@ When a worktree is created:
 1. Database name is tracked in git config (`haive.database`)
 2. `.env.local` is automatically updated with worktree-specific `DATABASE_URL`
 
+### Serve Command
+
+Manage Docker containers for worktrees using configured compose files:
+
+```bash
+# Start containers for current worktree
+haive serve
+
+# Stop containers for current worktree  
+haive serve stop
+```
+
+**Configuration:**
+
+```toml
+[serve]
+compose_files = ["docker-compose.yml", "compose.worktree.yaml"]
+```
+
+- `compose_files`: Array of compose files to use with `docker compose up -d`
+- All files are passed with `-f` flags in order
+- If `[serve]` is not configured, the command will error with instructions
+
 ### Database Hooks
 
 Run commands during database operations:
@@ -234,6 +260,7 @@ preDrop = ["./scripts/backup-before-drop.sh"]
 | `worktree.hooks.postRemove` | No | Commands to run after worktree removal |
 | `worktree.env.file` | No | Env file to update with worktree database (e.g., `.env.local`) |
 | `worktree.env.var_name` | No | Variable name to set (e.g., `DATABASE_URL`) |
+| `serve.compose_files` | If serve section exists | Array of compose files for `haive serve` command |
 
 ### Environment Variables
 

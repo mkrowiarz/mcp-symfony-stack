@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/mkrowiarz/mcp-symfony-stack/internal/core/commands"
-	"github.com/mkrowiarz/mcp-symfony-stack/internal/core/types"
 	"github.com/mkrowiarz/mcp-symfony-stack/internal/mcp"
 	"github.com/mkrowiarz/mcp-symfony-stack/internal/tui"
 )
@@ -115,8 +114,8 @@ func printHelp() {
 	fmt.Println("  " + magenta + "--new-branch, -n" + reset + "      Create new branch (with create)")
 	fmt.Println()
 	fmt.Println(bold + "Serve Commands:" + reset)
-	fmt.Println("  " + yellow + "serve" + reset + "                  Start app container for current worktree")
-	fmt.Println("  " + yellow + "serve stop" + reset + "             Stop app container for current worktree")
+	fmt.Println("  " + yellow + "serve" + reset + "                  Start containers for current worktree")
+	fmt.Println("  " + yellow + "serve stop" + reset + "             Stop containers for current worktree")
 	fmt.Println()
 	fmt.Println(bold + "Examples:" + reset)
 	fmt.Println("  " + green + "haive init --write" + reset + "                 # Create config file")
@@ -174,6 +173,14 @@ func handleInit(args []string) {
 }
 
 func handleCheckout(args []string) {
+	// Handle help flags
+	for _, arg := range args {
+		if arg == "--help" || arg == "-h" {
+			printCheckoutHelp()
+			return
+		}
+	}
+
 	if len(args) == 0 {
 		fmt.Fprintf(os.Stderr, "Usage: haive checkout <branch> [--create] [--clone-from=<db>]\n")
 		os.Exit(1)
@@ -209,6 +216,14 @@ func handleCheckout(args []string) {
 }
 
 func handleSwitch(args []string) {
+	// Handle help flags
+	for _, arg := range args {
+		if arg == "--help" || arg == "-h" {
+			printSwitchHelp()
+			return
+		}
+	}
+
 	cloneFrom := ""
 	for _, arg := range args {
 		if strings.HasPrefix(arg, "--clone-from=") {
@@ -360,14 +375,20 @@ func printWorktreeHelp() {
 }
 
 func handleServe(args []string) {
+	// Handle help flags
+	for _, arg := range args {
+		if arg == "--help" || arg == "-h" {
+			printServeHelp()
+			return
+		}
+	}
+
 	// ANSI color codes
 	var (
-		reset  = "\033[0m"
-		red    = "\033[31m"
-		green  = "\033[32m"
-		yellow = "\033[33m"
-		cyan   = "\033[36m"
-		dim    = "\033[2m"
+		reset = "\033[0m"
+		red   = "\033[31m"
+		green = "\033[32m"
+		cyan  = "\033[36m"
 	)
 
 	// Check if it's a stop command
@@ -386,43 +407,6 @@ func handleServe(args []string) {
 	// Start the worktree app container
 	result, err := commands.Serve(".")
 	if err != nil {
-		// Check if it's a missing config error
-		if cmdErr, ok := err.(*types.CommandError); ok {
-			fmt.Println()
-			fmt.Printf("%s✗ %s%s\n", red, cmdErr.Message, reset)
-			fmt.Println()
-
-			if cmdErr.Code == types.ErrConfigMissing && strings.Contains(cmdErr.Message, "compose.worktree.yaml") {
-				fmt.Printf("%sSetup Instructions:%s\n", cyan, reset)
-				fmt.Println()
-				fmt.Println("1. Create " + yellow + "compose.worktree.yaml" + reset + " in your worktree root:")
-				fmt.Println()
-				fmt.Println(dim + "   services:" + reset)
-				fmt.Println(dim + "     app:" + reset)
-				fmt.Println(dim + "       ports: []  # OrbStack provides hostname" + reset)
-				fmt.Println(dim + "       volumes:" + reset)
-				fmt.Println(dim + "         - .:/app:delegated" + reset)
-				fmt.Println(dim + "         - /app/var/cache" + reset)
-				fmt.Println(dim + "         - /app/vendor" + reset)
-				fmt.Println(dim + "       environment:" + reset)
-				fmt.Println(dim + "         DATABASE_URL: \"mysql://user:pass@db:3306/mydb_wt_branch\"" + reset)
-				fmt.Println(dim + "   networks:" + reset)
-				fmt.Println(dim + "     local:" + reset)
-				fmt.Println(dim + "       external: true" + reset)
-				fmt.Println(dim + "       name: myproject_local" + reset)
-				fmt.Println()
-				fmt.Println("2. Run " + green + "composer install" + reset + " && " + green + "npm install" + reset + " in the worktree")
-				fmt.Println()
-				fmt.Println("3. Run " + green + "haive serve" + reset + " to start the container")
-				fmt.Println()
-				fmt.Printf("%sFor complete template:%s See README.md\n", dim, reset)
-				fmt.Println()
-			}
-
-			os.Exit(1)
-		}
-
-		// Generic error
 		fmt.Println()
 		fmt.Printf("%s✗ Error:%s %v\n", red, reset, err)
 		fmt.Println()
@@ -431,6 +415,85 @@ func handleServe(args []string) {
 
 	fmt.Printf("%s✓%s Worktree: %s\n", green, reset, result.Branch)
 	fmt.Printf("%s✓%s Project: %s\n", green, reset, result.ProjectName)
-	fmt.Printf("%s✓%s Started: app container\n", green, reset)
+	fmt.Printf("%s✓%s Started containers\n", green, reset)
 	fmt.Printf("%s✓%s URL: %s%s%s\n", green, reset, cyan, result.URL, reset)
+}
+
+func printCheckoutHelp() {
+	var (
+		reset   = "\033[0m"
+		bold    = "\033[1m"
+		cyan    = "\033[36m"
+		green   = "\033[32m"
+		magenta = "\033[35m"
+	)
+
+	fmt.Println()
+	fmt.Println(cyan + "haive checkout" + reset + " - Switch git branch and database")
+	fmt.Println()
+	fmt.Println(bold + "Usage:" + reset)
+	fmt.Println("  " + green + "haive checkout <branch> [flags]" + reset)
+	fmt.Println()
+	fmt.Println(bold + "Flags:" + reset)
+	fmt.Println("  " + magenta + "--create, -c" + reset + "          Create new branch")
+	fmt.Println("  " + magenta + "--clone-from=<db>" + reset + "     Clone data from specified database")
+	fmt.Println()
+	fmt.Println(bold + "Examples:" + reset)
+	fmt.Println("  " + green + "haive checkout main" + reset + "                    # Switch to main")
+	fmt.Println("  " + green + "haive checkout feature/x --create" + reset + "      # Create branch with new db")
+	fmt.Println("  " + green + "haive checkout feature/x -c" + reset + "            # Shorthand for --create")
+	fmt.Println("  " + green + "haive checkout feature/x --clone-from=main" + reset + " # Clone from main db")
+	fmt.Println()
+}
+
+func printSwitchHelp() {
+	var (
+		reset   = "\033[0m"
+		bold    = "\033[1m"
+		cyan    = "\033[36m"
+		green   = "\033[32m"
+		magenta = "\033[35m"
+	)
+
+	fmt.Println()
+	fmt.Println(cyan + "haive switch" + reset + " - Switch database for current branch")
+	fmt.Println()
+	fmt.Println(bold + "Usage:" + reset)
+	fmt.Println("  " + green + "haive switch [flags]" + reset)
+	fmt.Println()
+	fmt.Println(bold + "Flags:" + reset)
+	fmt.Println("  " + magenta + "--clone-from=<db>" + reset + "     Clone data from specified database")
+	fmt.Println()
+	fmt.Println(bold + "Examples:" + reset)
+	fmt.Println("  " + green + "haive switch" + reset + "                             # Switch to branch database")
+	fmt.Println("  " + green + "haive switch --clone-from=main" + reset + "           # Clone and switch to main db")
+	fmt.Println()
+}
+
+func printServeHelp() {
+	var (
+		reset = "\033[0m"
+		bold  = "\033[1m"
+		cyan  = "\033[36m"
+		green = "\033[32m"
+		dim   = "\033[2m"
+	)
+
+	fmt.Println()
+	fmt.Println(cyan + "haive serve" + reset + " - Manage containers for current worktree")
+	fmt.Println()
+	fmt.Println(bold + "Usage:" + reset)
+	fmt.Println("  " + green + "haive serve" + reset + "             Start containers")
+	fmt.Println("  " + green + "haive serve stop" + reset + "        Stop containers")
+	fmt.Println()
+	fmt.Println(bold + "Configuration:" + reset)
+	fmt.Println("  Add a [serve] section to your .haive.toml:")
+	fmt.Println()
+	fmt.Println(dim + "  [serve]" + reset)
+	fmt.Println(dim + "  compose_files = [\"docker-compose.yml\", \"compose.override.yml\"]" + reset)
+	fmt.Println()
+	fmt.Println(bold + "Examples:" + reset)
+	fmt.Println("  " + green + "haive serve" + reset + "             # Start containers")
+	fmt.Println("  " + green + "haive serve stop" + reset + "        # Stop containers")
+	fmt.Println()
 }

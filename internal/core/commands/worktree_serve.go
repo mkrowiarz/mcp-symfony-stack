@@ -19,7 +19,7 @@ type ServeResult struct {
 	URL          string `json:"url"`
 }
 
-// Serve starts the app container for a worktree using compose.worktree.yaml
+// Serve starts containers using the configured compose files
 func Serve(projectRoot string) (*ServeResult, error) {
 	// 1. Detect if we're in a worktree
 	branch, isWorktree, err := detectWorktree(projectRoot)
@@ -34,31 +34,42 @@ func Serve(projectRoot string) (*ServeResult, error) {
 		}
 	}
 
-	// 2. Check for compose.worktree.yaml
-	worktreeComposeFile := filepath.Join(projectRoot, "compose.worktree.yaml")
-	if _, err := os.Stat(worktreeComposeFile); os.IsNotExist(err) {
+	// 2. Load config and check for [serve] section
+	cfg, err := config.Load(projectRoot)
+	if err != nil {
 		return nil, &types.CommandError{
 			Code:    types.ErrConfigMissing,
-			Message: "compose.worktree.yaml not found. See README.md for setup instructions.",
+			Message: fmt.Sprintf("failed to load config: %v", err),
 		}
 	}
 
-	// 3. Find main project's docker-compose.yml
-	mainComposeFile, err := findMainComposeFile(projectRoot)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find main docker-compose.yml: %w", err)
+	if cfg.Serve == nil || len(cfg.Serve.ComposeFiles) == 0 {
+		return nil, &types.CommandError{
+			Code:    types.ErrConfigMissing,
+			Message: "[serve] section not configured or compose_files is empty. Add [serve] with compose_files to your config.",
+		}
+	}
+
+	// 3. Verify all compose files exist
+	for _, f := range cfg.Serve.ComposeFiles {
+		composePath := filepath.Join(projectRoot, f)
+		if _, err := os.Stat(composePath); os.IsNotExist(err) {
+			return nil, &types.CommandError{
+				Code:    types.ErrConfigInvalid,
+				Message: fmt.Sprintf("compose file not found: %s", f),
+			}
+		}
 	}
 
 	// 4. Generate unique project name
-	cfg, _ := config.Load(projectRoot) // Ignore error, use defaults
 	projectName := generateProjectName(cfg, branch)
 
-	// 5. Start the app container
-	if err := startAppContainer(projectRoot, projectName, mainComposeFile, worktreeComposeFile); err != nil {
-		return nil, fmt.Errorf("failed to start app container: %w", err)
+	// 5. Start containers
+	if err := startContainers(projectRoot, projectName, cfg.Serve.ComposeFiles); err != nil {
+		return nil, fmt.Errorf("failed to start containers: %w", err)
 	}
 
-	// 6. Build result with OrbStack hostname
+	// 6. Build result with hostname
 	hostname := fmt.Sprintf("%s-app.orb.local", projectName)
 
 	return &ServeResult{
@@ -70,7 +81,7 @@ func Serve(projectRoot string) (*ServeResult, error) {
 	}, nil
 }
 
-// Stop stops the app container for a worktree
+// Stop stops containers using the configured compose files
 func Stop(projectRoot string) error {
 	// Detect worktree
 	branch, isWorktree, err := detectWorktree(projectRoot)
@@ -85,12 +96,33 @@ func Stop(projectRoot string) error {
 		}
 	}
 
-	// Load config for project name generation
-	cfg, _ := config.Load(projectRoot) // Ignore error, use defaults
+	// Load config and check for [serve] section
+	cfg, err := config.Load(projectRoot)
+	if err != nil {
+		return &types.CommandError{
+			Code:    types.ErrConfigMissing,
+			Message: fmt.Sprintf("failed to load config: %v", err),
+		}
+	}
+
+	if cfg.Serve == nil || len(cfg.Serve.ComposeFiles) == 0 {
+		return &types.CommandError{
+			Code:    types.ErrConfigMissing,
+			Message: "[serve] section not configured or compose_files is empty. Add [serve] with compose_files to your config.",
+		}
+	}
+
+	// Generate project name
 	projectName := generateProjectName(cfg, branch)
 
-	// Stop and remove containers
-	cmd := exec.Command("docker", "compose", "-p", projectName, "down")
+	// Build docker compose command with all compose files
+	args := []string{"compose"}
+	for _, f := range cfg.Serve.ComposeFiles {
+		args = append(args, "-f", f)
+	}
+	args = append(args, "-p", projectName, "down")
+
+	cmd := exec.Command("docker", args...)
 	cmd.Dir = projectRoot
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -128,45 +160,6 @@ func detectWorktree(projectRoot string) (string, bool, error) {
 	return branch, true, nil
 }
 
-// findMainComposeFile finds the docker-compose.yml in the main project
-func findMainComposeFile(projectRoot string) (string, error) {
-	mainRoot, err := findProjectRoot(projectRoot)
-	if err != nil {
-		return "", err
-	}
-
-	composeFile := filepath.Join(mainRoot, "docker-compose.yml")
-	if _, err := os.Stat(composeFile); err != nil {
-		return "", fmt.Errorf("docker-compose.yml not found in main project: %w", err)
-	}
-
-	return composeFile, nil
-}
-
-// findProjectRoot finds the main project root from a worktree
-func findProjectRoot(worktreeRoot string) (string, error) {
-	// Read .git file to find main repo location
-	gitFile := filepath.Join(worktreeRoot, ".git")
-	content, err := os.ReadFile(gitFile)
-	if err != nil {
-		return "", err
-	}
-
-	// .git file contains: gitdir: /path/to/main/.git/worktrees/branch-name
-	line := strings.TrimSpace(string(content))
-	if !strings.HasPrefix(line, "gitdir: ") {
-		return "", fmt.Errorf("invalid .git file format")
-	}
-
-	gitDir := strings.TrimPrefix(line, "gitdir: ")
-	// gitDir is like: /path/to/main/.git/worktrees/branch-name
-	// We need: /path/to/main
-	mainGitDir := filepath.Dir(filepath.Dir(gitDir)) // Remove /worktrees/branch-name
-	mainRoot := filepath.Dir(mainGitDir)             // Remove /.git
-
-	return mainRoot, nil
-}
-
 // generateProjectName creates a unique docker compose project name for the worktree
 func generateProjectName(cfg *config.Config, branch string) string {
 	// Sanitize branch name for docker project name
@@ -183,13 +176,15 @@ func generateProjectName(cfg *config.Config, branch string) string {
 	return fmt.Sprintf("%s-wt-%s", baseProject, sanitized)
 }
 
-// startAppContainer starts the app service with docker compose
-func startAppContainer(projectRoot, projectName, mainComposeFile, worktreeComposeFile string) error {
-	cmd := exec.Command("docker", "compose",
-		"-p", projectName,
-		"-f", mainComposeFile,
-		"-f", worktreeComposeFile,
-		"up", "-d", "app")
+// startContainers starts containers with docker compose using configured files
+func startContainers(projectRoot, projectName string, composeFiles []string) error {
+	args := []string{"compose"}
+	for _, f := range composeFiles {
+		args = append(args, "-f", f)
+	}
+	args = append(args, "-p", projectName, "up", "-d")
+
+	cmd := exec.Command("docker", args...)
 	cmd.Dir = projectRoot
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
