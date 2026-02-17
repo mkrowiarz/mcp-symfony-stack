@@ -1,242 +1,293 @@
-# AGENTS.md
+# AI Agent Guide for Haive Configuration
 
-This file contains guidelines for agents working on this repository.
+This document helps AI agents understand and configure haive projects.
 
-## Build / Lint / Test Commands
+## Project Overview
 
-```bash
-# Build the main binary (local development)
-go build -o haive ./cmd/haive
+**Haive** is a development environment manager for Docker Compose-based projects. It provides:
+- Git worktree management with per-worktree databases
+- Database operations (clone, drop, list)
+- Docker container management per worktree
+- TUI, CLI, and MCP interfaces
 
-# Install to ~/go/bin using 'go install' (recommended for use)
-make install
+## Configuration File Structure
 
-# Install to ~/.local/bin
-make install-local
+The main configuration file is `.haive.toml` in the project root.
 
-# Build for multiple platforms
-go build -o haive-linux ./cmd/haive
-GOOS=darwin GOARCH=arm64 go build -o haive-mac-arm64 ./cmd/haive
+### Minimal Configuration
 
-# Run tests
-go test ./...
-
-# Run tests with coverage
-go test -cover ./...
-
-# Run tests in verbose mode
-go test -v ./...
-
-# Run a specific test
-go test -v ./internal/core -run TestDumpDefaultDB
-
-# Run tests in a specific package
-go test ./internal/core/commands
-
-# Benchmark tests
-go test -bench=. ./...
-
-# Lint with golangci-lint
-golangci-lint run
-
-# Format code
-go fmt ./...
-
-# Tidy dependencies
-go mod tidy
-
-# Verify dependencies
-go mod verify
+```toml
+[docker]
+compose_files = ["docker-compose.yml"]
 ```
 
-## Code Style Guidelines
+### Full Configuration Example
 
-### Project Structure
-
-- `cmd/haive/` - Application entry point (routes to TUI, MCP, or CLI)
-- `internal/core/` - Pure logic, no I/O opinions (config, commands, types)
-- `internal/executor/` - Shell command wrappers (docker, git, filesystem)
-- `internal/mcp/` - MCP interface adapter
-- `internal/tui/` - TUI interface adapter (Bubble Tea)
-- `internal/cli/` - CLI interface adapter
-
-### Formatting
-
-- Use `gofmt` or `go fmt ./...` for standard formatting
-- Maximum line length: 100 characters (not 80)
-- Use `gofumpt` for stricter formatting if available
-
-### Imports
-
-- Standard library → third-party → internal packages
-- Use blank lines between import groups
-- Prefer named imports for packages with generic names:
-  ```go
-  import (
-      "fmt"
-      teamodels "github.com/charmbracelet/bubbletea"
-      "github.com/charmbracelet/lipgloss"
-      pmcore "mcp-project-manager/internal/core"
-  )
-  ```
-
-### Naming Conventions
-
-- **Interfaces**: Single verb or noun ending in -er: `Executor`, `Parser`, `Validator`
-- **Package names**: Lowercase, single word, descriptive: `core`, `executor`, `tui`
-- **Constants**: PascalCase: `ErrConfigMissing`, `StageDumping`
-- **Variables**: camelCase
-- **Private fields**: camelCase with lowercase first letter
-- **Public fields**: PascalCase
-- **Files**: Lowercase, match package name: `config.go`, `executor.go`
-
-### Types
-
-- Use structs for data containers
-- Use typed errors with codes: `type ErrCode string` + `CommandError` struct
-- Return typed results, not formatted strings (core library)
-- Define progress callbacks as types: `type ProgressFunc func(stage ProgressStage, detail string)`
-
-### Error Handling
-
-- Never ignore errors (use `_` only if explicitly justified)
-- Wrap errors with context: `fmt.Errorf("failed to load config: %w", err)`
-- Return typed `CommandError` from core commands with error codes
-- Define error codes as constants: `ErrConfigMissing`, `ErrDbNotAllowed`, etc.
-- Use `errors.Is()` and `errors.As()` for error checking
-
-### Testing
-
-- Write table-driven tests for functions with multiple cases
-- Test pure functions without mocks (config parsing, env resolution, DSN parsing)
-- Mock `Executor` interface for command tests (no real Docker/Git calls)
-- Test file naming: `<source>_test.go` (e.g., `config_test.go`)
-- Run single test: `go test -v ./internal/core -run TestSpecificCase`
-- Use `t.Parallel()` for independent tests
-
-### Bubble Tea TUI
-
-- Use Elm architecture: Model → Update → View
-- Define message types as structs: `type TickMsg time.Time`, `type ErrMsg error`
-- Keep models pure; use `tea.Cmd` for side effects
-- Use Lip Gloss for consistent styling
-- Define styles in `tui/styles/theme.go`
-
-### CLI (Cobra)
-
-- Use snake_case for command names: `db dump`, `worktree create`
-- Provide `--help` for all commands
-- Use flags for options: `--database`, `--tables`
-- Return exit codes: 0 (success), 1 (command error), 2 (config error)
-
-### Config & DSN
-
-- Config file: `.claude/project.json` (relative to project root)
-- Resolve `${VAR_NAME}` from `.env` and `.env.local` files
-- Parse DSN using `net/url` package
-- Mask credentials in logs and TUI display
-
-### Config Formats (TOML/YAML/JSON)
-
-Haive supports multiple config formats (searched in priority order):
-
-1. `haive.toml` (TOML - recommended)
-2. `.haive/config.toml`
-3. `haive.yaml` (YAML)
-4. `.haive/config.yaml`
-5. `haive.json` (JSON)
-6. `.haive/config.json`
-7. `.claude/project.json` (JSON, legacy)
-
-**TOML Example:**
 ```toml
-[project]
-name = "my-project"
-
+# Docker configuration (required)
 [docker]
-compose_files = ["compose.yaml"]
+compose_files = ["compose.yaml", "docker/dev/compose.database.yaml", "docker/dev/compose.app.yaml"]
+project_name = "myapp"  # Optional: prefix for docker compose projects
 
+# Database configuration (optional, but required for DB operations)
+[database]
+service = "database"  # Docker compose service name for DB
+dsn = "${DATABASE_URL}"  # Supports env var interpolation
+allowed = ["myapp", "myapp_*"]  # Glob patterns for allowed DB names
+dumps_path = "var/dumps"  # Optional: default is "var/dumps"
+
+# Worktree configuration (optional, but required for worktree operations)
 [worktree]
-base_path = ".worktrees"
+base_path = ".worktrees"  # Directory for worktrees
+db_per_worktree = true    # Auto-create database per worktree
 
+# Files to copy when creating worktree
 [worktree.copy]
-include = [".env.local", "config/**/*.yaml"]
-exclude = ["vendor/", "node_modules/"]
+include = [".env.local", "config/**/*.yaml", "docker/**/*.yaml"]
+exclude = ["vendor/", "node_modules/", ".git/"]
 
+# Hooks run during worktree lifecycle
 [worktree.hooks]
 postCreate = ["composer install", "npm install"]
 preRemove = ["./scripts/cleanup.sh"]
 
+# Per-worktree environment configuration
 [worktree.env]
 file = ".env.local"
 var_name = "DATABASE_URL"
 
-[database]
-service = "database"
-dsn = "mysql://user:pass@db:3306/myapp"
-allowed = ["myapp", "myapp_*"]
+# Serve configuration for worktree containers
+[serve]
+compose_files = ["compose.yaml", "docker/dev/compose.database.yaml", "docker/dev/compose.app.yaml"]
 
+# Worktree-specific serve configuration (optional)
+[serve.worktree]
+compose_files = ["docker/dev/compose.app.yaml"]
+
+# Database hooks
 [database.hooks]
 postClone = ["./scripts/seed.sh"]
 preDrop = ["./scripts/backup.sh"]
 ```
 
-### Worktree Features
+## Docker Compose Organization Patterns
 
-**File Copy Patterns:**
-- Uses glob patterns with `**` support (via doublestar)
-- `include`: Files to copy when creating worktree
-- `exclude`: Patterns to skip even if matched by include
+### Pattern 1: Monolithic Compose (Simple Projects)
 
-**Hooks:**
-- Worktree hooks run with environment variables:
-  - `REPO_ROOT`, `PROJECT_NAME`
-  - `WORKTREE_PATH`, `WORKTREE_NAME`, `BRANCH`
-- Database hooks receive:
-  - `DATABASE_NAME`, `DATABASE_URL`
-  - `SOURCE_DATABASE`, `TARGET_DATABASE` (for clone)
-- Pre-hooks stop on failure, post-hooks log warnings
-
-**Database Per Worktree:**
-- `worktree.env` updates `.env.local` with worktree-specific database
-- Git config `haive.database` tracks which DB a worktree uses
-
-### Safety & Guards
-
-- Check `allowed` patterns before any database operation
-- Refuse to drop the default database
-- Validate worktree paths against traversal attacks
-- Return typed errors before calling executor (fail fast)
-
-### Git & Jujutsu Conventions
-
-This repository supports both Git and Jujutsu workflows. Both can push to GitHub.
-
-**Conventional commits**: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`
-- Keep commits/changesets atomic (one logical change per commit)
-- Write descriptive commit messages explaining "why", not just "what"
-
-**Git workflow**:
-```bash
-git status          # Check working tree status
-git diff            # View staged and unstaged changes
-git add .           # Stage changes
-git commit -m "..." # Commit with message
-git push            # Push to GitHub
+```
+project-root/
+├── .haive.toml
+├── docker-compose.yml          # Everything in one file
+└── src/
 ```
 
-**Jujutsu workflow**:
-```bash
-jj status           # Check working copy status
-jj diff             # View changes
-jj new <description> # Create new change (no editor needed)
-jj describe <change-id> # Update change description
-jj git push         # Push to GitHub (syncs Git HEAD)
+```toml
+[docker]
+compose_files = ["docker-compose.yml"]
+
+[serve]
+compose_files = ["docker-compose.yml"]
 ```
 
-**Jujutsu with GitHub**:
-- Use `jj git clone <url>` to clone from GitHub
-- Use `jj git push` to push changes back to GitHub
-- `jj` automatically creates Git commits when pushing
-- Use `jj git fetch` to pull changes from GitHub
-- Use `gh` CLI for GitHub operations (PRs, issues) alongside `jj`
+### Pattern 2: Modular Compose (Recommended)
+
+```
+project-root/
+├── .haive.toml
+├── compose.yaml                # Base services (db, cache)
+├── docker/
+│   └── dev/
+│       ├── compose.database.yaml   # Database overrides
+│       ├── compose.app.yaml        # App service
+│       └── compose.worktree.yaml   # Worktree-specific overrides
+└── src/
+```
+
+```toml
+[docker]
+compose_files = ["compose.yaml", "docker/dev/compose.database.yaml"]
+
+[serve]
+compose_files = ["compose.yaml", "docker/dev/compose.database.yaml", "docker/dev/compose.app.yaml"]
+
+[serve.worktree]
+compose_files = ["docker/dev/compose.app.yaml"]
+```
+
+**Key principle:** Worktrees inherit the network from the main project, so they can connect to the main database.
+
+### Pattern 3: Full Separation (Worktrees Run Everything)
+
+```
+project-root/
+├── .haive.toml
+├── compose.yaml                # Define networks and volumes
+├── docker/
+│   └── dev/
+│       ├── compose.db.yaml     # Database service
+│       └── compose.app.yaml    # App service
+└── src/
+```
+
+```toml
+[docker]
+compose_files = ["compose.yaml", "docker/dev/compose.db.yaml"]
+
+[serve]
+compose_files = ["compose.yaml", "docker/dev/compose.db.yaml", "docker/dev/compose.app.yaml"]
+
+# Worktrees also run full stack (no [serve.worktree] override)
+```
+
+## Environment Variable Resolution
+
+Haive resolves `${VAR_NAME}` syntax in this order:
+1. OS environment variables
+2. `.env.local` file
+3. `.env` file
+
+Common pattern:
+```toml
+[database]
+dsn = "${DATABASE_URL}"
+```
+
+## Worktree Flow
+
+1. **Main project** runs full stack (database + app)
+2. **Worktrees** created via `haive worktree create <branch>`
+3. **Files copied** based on `[worktree.copy]` patterns
+4. **Environment updated** with worktree-specific DB URL
+5. **Serve command** starts only app service in worktree
+
+## Common Configuration Tasks
+
+### Task: Add Database Support
+
+1. Check for existing docker-compose with database service
+2. Add `[database]` section to `.haive.toml`
+3. Ensure `allowed` patterns include main DB and worktree DBs
+4. Verify DATABASE_URL in `.env.local`
+
+### Task: Setup Worktrees with Shared Database
+
+1. Configure `[worktree]` section with `base_path`
+2. Setup `[worktree.copy]` to include necessary files
+3. Configure `[serve]` with full compose files
+4. Add `[serve.worktree]` with only app compose file
+5. Ensure main project compose defines an external network
+
+Example compose for main project:
+```yaml
+# compose.yaml
+services:
+  database:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    networks:
+      - local
+
+networks:
+  local:
+    name: ${PROJECT_NAME:-app}_local  # Named network
+```
+
+Example compose for worktree app:
+```yaml
+# docker/dev/compose.app.yaml
+services:
+  app:
+    build: .
+    environment:
+      DATABASE_URL: "mysql://root:root@database:3306/myapp_wt_branch"
+    networks:
+      - local
+
+networks:
+  local:
+    external: true
+    name: ${PROJECT_NAME:-app}_local  # Connect to main project's network
+```
+
+### Task: Configure Database Hooks
+
+Add to `.haive.toml`:
+```toml
+[database.hooks]
+postClone = ["./scripts/seed-after-clone.sh"]
+preDrop = ["./scripts/backup-before-drop.sh"]
+```
+
+Hooks receive environment variables:
+- `REPO_ROOT` - Path to main repository
+- `DATABASE_NAME` - Database being operated on
+- `DATABASE_URL` - Full connection URL
+- `SOURCE_DATABASE` - For clone operations
+- `TARGET_DATABASE` - For clone operations
+
+## Troubleshooting
+
+### "[serve] section not configured"
+Add `[serve]` with `compose_files` to `.haive.toml`
+
+### "not in a worktree directory"
+`haive serve` only works inside worktrees, not the main project.
+
+### Database connection fails from worktree
+1. Check that main project defines a named network
+2. Ensure worktree compose uses `external: true` network
+3. Verify network name matches between main and worktree
+
+### Worktree files not copied
+Check `[worktree.copy]` patterns:
+- `include` uses glob patterns with `**` for recursive
+- `exclude` patterns skip files even if matched by include
+
+## Quick Reference: Configuration Validation
+
+Run these commands to validate configuration:
+
+```bash
+# Check config is valid
+haive init
+
+# List worktrees
+haive worktree list
+
+# Test database operations
+haive checkout feature/test --create
+
+# Test serve (from inside a worktree)
+cd .worktrees/feature-test
+haive serve
+```
+
+## Migration from Other Tools
+
+### From plain docker-compose:
+1. Create `.haive.toml` with `[docker]` section
+2. Add `[database]` if using database features
+3. Add `[worktree]` if using worktree features
+4. Organize compose files if needed for worktree support
+
+### From Laravel Sail:
+1. Extract compose files from Sail
+2. Configure `[docker]` with compose files
+3. Update `docker` service references to match Sail services
+4. Configure `[database]` with Sail's DB service name
+
+## AI Agent Checklist
+
+When helping configure haive:
+
+- [ ] Identify project type and existing docker-compose setup
+- [ ] Check if database is used and what service name it has
+- [ ] Determine if worktrees need shared or separate databases
+- [ ] Organize compose files if worktree support is needed
+- [ ] Configure `[docker]` with correct compose files
+- [ ] Configure `[database]` with service name and DSN pattern
+- [ ] Set up `[worktree]` with appropriate file copy patterns
+- [ ] Configure `[serve]` and `[serve.worktree]` for container management
+- [ ] Add hooks if custom scripts are needed
+- [ ] Test configuration with `haive init` and `haive worktree list`
