@@ -57,6 +57,13 @@ func PreValidateWorktree(cfg *config.HaiveConfig, branch string) error {
 		return err
 	}
 
+	if cfg.Worktree == nil {
+		return &types.CommandError{
+			Code:    types.ErrInvalidWorktree,
+			Message: "worktree configuration is missing",
+		}
+	}
+
 	// Check for path traversal
 	dirName, _ := pmcore.SanitizeWorktreeName(branch)
 	worktreePath := filepath.Join(cfg.Worktree.BasePath, dirName)
